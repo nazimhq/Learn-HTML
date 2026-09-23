@@ -1,0 +1,104 @@
+*{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7fb;color:#131722}a{text-decoration:none;color:inherit}.shell{display:grid;grid-template-columns:250px 1fr;min-height:100vh}.side{background:#101828;color:white;padding:24px 18px;position:sticky;top:0;height:100vh}.brand{font-size:26px;font-weight:800;margin-bottom:28px}.brand span{opacity:.65;font-size:12px;display:block;font-weight:500;letter-spacing:.12em}.nav a{display:block;padding:12px 14px;border-radius:10px;margin:6px 0;color:#d0d5dd}.nav a:hover{background:#1d2939;color:#fff}.main{padding:28px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.title{font-size:28px;font-weight:800}.muted{color:#667085}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{background:#fff;border:1px solid #eaecf0;border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(16,24,40,.04)}.metric{font-size:30px;font-weight:800;margin-top:8px}.btn{border:0;background:#111827;color:white;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.btn.secondary{background:#fff;color:#111827;border:1px solid #d0d5dd}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}.input,select,textarea{width:100%;padding:11px 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff}.inventory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.product-card{overflow:hidden;padding:0}.product-card img{width:100%;height:190px;object-fit:cover;background:#eef2f6}.product-body{padding:15px}.row{display:flex;justify-content:space-between;gap:14px;align-items:center}.badge{font-size:12px;padding:5px 8px;border-radius:999px;background:#eef2ff;color:#3538cd;font-weight:700}.badge.warn{background:#fff4e5;color:#b54708}.badge.good{background:#ecfdf3;color:#027a48}.table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}.table th,.table td{padding:12px;border-bottom:1px solid #eaecf0;text-align:left;font-size:14px}.table th{background:#f9fafb}.split{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.hero-img{width:100%;max-height:420px;object-fit:contain;background:#fff;border:1px solid #eaecf0;border-radius:16px}.label{font-size:13px;font-weight:700;margin:12px 0 6px}.stack{display:grid;gap:10px}.notice{padding:12px 14px;border-radius:10px;background:#fff8e7;border:1px solid #f5d48a;color:#7a4f01}.footer-note{margin-top:24px;font-size:12px;color:#98a2b3}@media(max-width:1000px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto}.grid{grid-template-columns:repeat(2,1fr)}.inventory{grid-template-columns:repeat(2,1fr)}.split{grid-template-columns:1fr}}@media(max-width:650px){.main{padding:16px}.grid,.inventory{grid-template-columns:1fr}.top{align-items:flex-start;gap:12px;flex-direction:column}}
+
+
+/* ---------------------------------------------------------------
+   Motion
+   Every animation below is disabled under prefers-reduced-motion.
+   --------------------------------------------------------------- */
+
+@keyframes hz-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes hz-fade{from{opacity:0}to{opacity:1}}
+@keyframes hz-pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@keyframes hz-sweep{from{background-position:180% 0}to{background-position:-80% 0}}
+@keyframes hz-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* Page content rises in on every route change */
+.page{animation:hz-rise .42s cubic-bezier(.22,.61,.36,1) both}
+
+/* Metric tiles and product cards stagger, so the eye lands on them in order */
+.stagger>*{animation:hz-rise .5s cubic-bezier(.22,.61,.36,1) both}
+.stagger>*:nth-child(1){animation-delay:.04s}
+.stagger>*:nth-child(2){animation-delay:.10s}
+.stagger>*:nth-child(3){animation-delay:.16s}
+.stagger>*:nth-child(4){animation-delay:.22s}
+.stagger>*:nth-child(5){animation-delay:.28s}
+.stagger>*:nth-child(6){animation-delay:.34s}
+.stagger>*:nth-child(n+7){animation-delay:.40s}
+
+/* Cards lift toward the pointer; the photo pushes in slightly behind them */
+.card{transition:transform .28s cubic-bezier(.22,.61,.36,1),box-shadow .28s ease,border-color .28s ease}
+a.product-card{will-change:transform}
+a.product-card:hover,a.product-card:focus-visible{transform:translateY(-5px);box-shadow:0 14px 30px rgba(16,24,40,.13);border-color:#d6dae1}
+.product-card img{transition:transform .5s cubic-bezier(.22,.61,.36,1)}
+a.product-card:hover img,a.product-card:focus-visible img{transform:scale(1.055)}
+
+/* A sliding rail marks the current page instead of a flat colour swap */
+.nav a{position:relative;transition:background .22s ease,color .22s ease,padding-left .22s ease}
+.nav a::before{content:"";position:absolute;left:5px;top:50%;width:3px;height:0;border-radius:2px;background:#5b8bb0;transform:translateY(-50%);transition:height .26s cubic-bezier(.22,.61,.36,1)}
+.nav a:hover{padding-left:18px}
+.nav a[aria-current="page"]{background:#1d2939;color:#fff;padding-left:18px}
+.nav a[aria-current="page"]::before{height:20px}
+
+/* Buttons acknowledge the press */
+.btn{transition:transform .16s ease,background .2s ease,box-shadow .2s ease}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(16,24,40,.18)}
+.btn:active{transform:translateY(0) scale(.975)}
+
+/* Search results fade as the list is filtered */
+.inventory.filtering{opacity:.45;transition:opacity .12s ease}
+
+/* Rows arrive one after another, so a long location list reads as a sequence */
+.table tbody tr{animation:hz-fade .4s ease both}
+.table tbody tr:nth-child(1){animation-delay:.06s}
+.table tbody tr:nth-child(2){animation-delay:.12s}
+.table tbody tr:nth-child(3){animation-delay:.18s}
+.table tbody tr:nth-child(4){animation-delay:.24s}
+.table tbody tr:nth-child(n+5){animation-delay:.30s}
+.table tbody tr{transition:background .2s ease}
+.table tbody tr:hover{background:#f9fafb}
+
+/* Stock figures count up on the product page */
+.metric[data-counting="true"]{color:#475467}
+
+/* The QR block settles in after the panel */
+.qr-in{animation:hz-pop .45s cubic-bezier(.22,.61,.36,1) .18s both}
+
+/* Empty-state and inline notices slide down rather than snapping in */
+.reveal{animation:hz-rise .32s cubic-bezier(.22,.61,.36,1) both}
+
+/* Loading placeholder used while a route is being fetched */
+.skeleton{border-radius:16px;background:linear-gradient(100deg,#eef1f6 30%,#f8fafc 50%,#eef1f6 70%);background-size:220% 100%;animation:hz-sweep 1.3s linear infinite}
+.skeleton.line{height:14px;border-radius:7px}
+.skeleton.tile{height:96px}
+.skeleton.card-img{height:190px;border-radius:0}
+
+/* Low stock draws attention without shouting */
+.badge.warn{animation:hz-pulse 2.4s ease-in-out infinite}
+
+/* Focus must stay visible now that hover carries so much of the feedback */
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #3538cd;outline-offset:2px}
+.input{transition:border-color .2s ease,box-shadow .2s ease}
+.input:focus{outline:none;border-color:#3538cd;box-shadow:0 0 0 3px rgba(53,56,205,.14)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  a.product-card:hover,a.product-card:focus-visible{transform:none}
+  a.product-card:hover img,a.product-card:focus-visible img{transform:none}
+  .btn:hover{transform:none}
+}
+
+/* ---------------------------------------------------------------
+   Print — label printing for the product page
+   --------------------------------------------------------------- */
+@media print{
+  .side,.top .btn,.no-print{display:none!important}
+  .shell{display:block}
+  .main{padding:0}
+  .card{box-shadow:none;border:1px solid #000;break-inside:avoid}
+  .label-sheet{display:block!important;padding:12mm}
+  .label-sheet .label-title{font-size:16pt;font-weight:800;margin-bottom:4mm}
+  .label-sheet .label-meta{font-size:11pt;line-height:1.6}
+  .print-hide{display:none!important}
+  @page{margin:8mm}
+}
+.label-sheet{display:none}
