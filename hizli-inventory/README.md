@@ -2,6 +2,25 @@
 
 Photo-first inventory and warehouse management starter for Hizli UK.
 
+## Signing in
+
+| Username | Password | Role | Can |
+|---|---|---|---|
+| `admin` | `Hizli@2026` | admin | everything |
+| `warehouse` | `Store@2026` | warehouse | add products, adjust stock — no Settings, no Quick Sale, no delete |
+
+Accounts are defined in `lib/auth.ts` and ship inside the browser bundle, so
+this is a UI gate, not security — anyone can read them in devtools. Real
+accounts need Supabase Auth and the RLS policies. The `user_role` enum in
+`supabase/schema.sql` is what these roles map onto.
+
+## Where data lives
+
+Products, orders, movements and settings are kept in each browser's
+`localStorage` (`lib/store.ts`). Nothing is shared between browsers or devices,
+and clearing site data wipes it. `lib/store.ts` is the single file to swap for
+Supabase queries — every page and dialog goes through it.
+
 ## Included
 - Dashboard
 - Visual inventory cards + search
