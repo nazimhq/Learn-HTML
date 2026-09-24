@@ -1,0 +1,194 @@
+/* NEXAWEB — only what Tailwind's CDN can't do on its own. */
+
+:root {
+  color-scheme: dark;
+  --bg: #0b0b0e;
+  --panel: #111115;
+  --panel-2: #16161b;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #8b5cf6;
+  --accent-2: #a855f7;
+  --accent-soft: rgba(139, 92, 246, 0.14);
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3 { text-wrap: balance; }
+::selection { background: rgba(139, 92, 246, 0.35); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* ---------- Buttons ---------- */
+.btn-primary {
+  background: linear-gradient(180deg, #9b6dfa 0%, var(--accent) 100%);
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(168, 85, 247, 0.55),
+    0 8px 30px -8px rgba(139, 92, 246, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: box-shadow 0.25s ease, transform 0.25s ease, filter 0.25s ease;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+  box-shadow:
+    0 0 0 1px rgba(168, 85, 247, 0.8),
+    0 10px 40px -6px rgba(139, 92, 246, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+}
+.btn-ghost {
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.btn-ghost:hover { border-color: rgba(168, 85, 247, 0.5); background: rgba(139, 92, 246, 0.06); }
+
+/* ---------- Cards ---------- */
+.card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.005));
+  border: 1px solid var(--line);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.08), 0 20px 50px -30px rgba(139, 92, 246, 0.6);
+}
+.card-featured {
+  border-color: rgba(168, 85, 247, 0.65);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(139, 92, 246, 0.16), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.25), 0 30px 80px -30px rgba(139, 92, 246, 0.7);
+}
+.card-featured:hover { border-color: rgba(168, 85, 247, 0.85); }
+
+.icon-tile {
+  background: var(--accent-soft);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+}
+
+/* ---------- Header ---------- */
+.site-header { top: env(safe-area-inset-top, 0px); transition: background 0.3s ease, border-color 0.3s ease; }
+.site-header.is-scrolled {
+  background: rgba(11, 11, 14, 0.78);
+  border-bottom-color: var(--line);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  backdrop-filter: saturate(160%) blur(14px);
+}
+
+/* ---------- Hero backdrop ---------- */
+.hero-glow {
+  background:
+    radial-gradient(60% 50% at 70% 20%, rgba(139, 92, 246, 0.22), transparent 70%),
+    radial-gradient(40% 40% at 15% 10%, rgba(168, 85, 247, 0.10), transparent 70%);
+}
+.hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 80%);
+}
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+}
+.text-gradient {
+  background: linear-gradient(90deg, #ffffff 0%, #d8c8ff 55%, #b794ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Search mock ---------- */
+.mock-shell {
+  background: linear-gradient(180deg, #15151b, #0f0f13);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 40px 100px -40px rgba(139, 92, 246, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+.mock-result-top {
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.03));
+}
+.skeleton { background: rgba(255, 255, 255, 0.07); border-radius: 999px; }
+
+/* ---------- Project thumbnails ---------- */
+.thumb {
+  position: relative;
+  overflow: hidden;
+  background: #121217;
+}
+.thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+/* ---------- Process connector ---------- */
+@media (min-width: 1024px) {
+  .step-line::before {
+    content: "";
+    position: absolute;
+    top: 1.25rem;
+    left: 3.25rem;
+    right: -1rem;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.5), rgba(255, 255, 255, 0.06));
+  }
+}
+
+/* ---------- FAQ accordion ---------- */
+.faq-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+.faq-panel > div { overflow: hidden; }
+.faq-item.is-open .faq-panel { grid-template-rows: 1fr; }
+.faq-icon { transition: transform 0.3s ease; }
+.faq-item.is-open .faq-icon { transform: rotate(45deg); }
+.faq-item.is-open { border-color: rgba(139, 92, 246, 0.35); }
+
+/* ---------- Floating WhatsApp button (mobile) ---------- */
+.fab {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.fab.is-hidden { opacity: 0; transform: translateY(12px); pointer-events: none; }
+
+/* ---------- Scroll reveal ---------- */
+.reveal-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.reveal-ready [data-reveal].is-visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .reveal-ready [data-reveal] { opacity: 1; transform: none; }
+}
