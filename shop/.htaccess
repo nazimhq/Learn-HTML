@@ -1,0 +1,13 @@
+# Shop security rules (Apache / LiteSpeed, as used by Hostinger)
+Options -Indexes
+
+# Never serve private files
+<FilesMatch "^(config\.php|config\.sample\.php|README\.md)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
