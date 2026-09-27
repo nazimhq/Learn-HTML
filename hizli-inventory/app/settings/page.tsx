@@ -3,13 +3,19 @@
 import {useEffect, useState} from 'react';
 import {useStore} from '@/lib/useStore';
 import {useSession} from '@/lib/useSession';
-import {saveSettings, resetDemoData, CURRENCIES, type Settings} from '@/lib/store';
-import {can, ACCOUNTS} from '@/lib/auth';
+import {saveSettings, resetDemoData, CURRENCIES} from '@/lib/store';
+import {can, ACCOUNTS, ROLE_LABELS} from '@/lib/auth';
+import {downloadCsv} from '@/lib/csv';
+import Tabs from '@/components/Tabs';
 import Toast from '@/components/Toast';
+import type {Settings} from '@/lib/types';
+
+type Tab = 'company' | 'users' | 'integrations' | 'data';
 
 export default function SettingsPage() {
   const {state, ready} = useStore();
   const {session} = useSession();
+  const [tab, setTab] = useState<Tab>('company');
   const [form, setForm] = useState<Settings>(state.settings);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
@@ -17,17 +23,17 @@ export default function SettingsPage() {
 
   useEffect(() => { if (ready) setForm(state.settings); }, [ready, state.settings]);
 
-  if (!can.manageSettings(session)) {
+  if (!can(session, 'settings.manage')) {
     return <div className="page">
       <div className="top"><div><div className="title">Settings</div></div></div>
-      <div className="notice">Only an admin can change company settings. You are signed in as <b>{session?.role}</b>.</div>
+      <div className="notice">Only an admin can change company settings. You are signed in as <b>{session ? ROLE_LABELS[session.role] : 'nobody'}</b>.</div>
     </div>;
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      saveSettings(form);
+      saveSettings(form, session!.username);
       setError('');
       setToast('Settings saved');
     } catch (err) {
@@ -35,74 +41,141 @@ export default function SettingsPage() {
     }
   }
 
-  const set = (k: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({...f, [k]: e.target.value}));
+  const set = <K extends keyof Settings>(k: K) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const raw = e.target.value;
+    setForm(f => ({...f, [k]: typeof f[k] === 'number' ? Number(raw) : raw}));
+  };
 
   return <div className="page">
-    <div className="top"><div><div className="title">Settings</div><div className="muted">Company &amp; integration configuration</div></div></div>
+    <div className="top"><div><div className="title">Settings</div><div className="muted">Company, users, integrations and data</div></div></div>
 
-    <div className="split stagger">
-      <form className="card stack" onSubmit={submit}>
-        <h3 style={{marginTop: 0}}>Company</h3>
-        <label className="field" htmlFor="company">Company name
-          <input id="company" className="input" value={form.company} onChange={set('company')}/>
-        </label>
-        <label className="field" htmlFor="prefix">SKU prefix
-          <input id="prefix" className="input" value={form.skuPrefix} onChange={set('skuPrefix')} maxLength={6}/>
-        </label>
+    <Tabs<Tab> active={tab} onChange={setTab} tabs={[
+      {key: 'company', label: 'Company'},
+      {key: 'users', label: 'Users & roles', count: ACCOUNTS.length},
+      {key: 'integrations', label: 'Integrations'},
+      {key: 'data', label: 'Data'}
+    ]}/>
+
+    {tab === 'company' && <form className="card stack" onSubmit={submit} style={{maxWidth: 560}}>
+      <h3 style={{marginTop: 0}}>Company</h3>
+      <label className="field" htmlFor="company">Company name<input id="company" className="input" value={form.company} onChange={set('company')}/></label>
+      <div className="form-grid">
+        <label className="field" htmlFor="prefix">SKU prefix<input id="prefix" className="input" value={form.skuPrefix} onChange={set('skuPrefix')} maxLength={6}/></label>
         <label className="field" htmlFor="currency">Currency
           <select id="currency" className="input" value={form.currency} onChange={set('currency')}>
             {Object.keys(CURRENCIES).map(c => <option key={c} value={c}>{c} ({CURRENCIES[c]})</option>)}
           </select>
         </label>
-        <label className="field" htmlFor="timezone">Timezone
-          <input id="timezone" className="input" value={form.timezone} onChange={set('timezone')}/>
-        </label>
-        {error && <div className="notice reveal" role="alert">{error}</div>}
-        <div><button className="btn" type="submit">Save</button></div>
-        <div className="muted" style={{fontSize: 13}}>
-          The prefix is used for the next SKU and order number; the currency changes every price shown.
-        </div>
-      </form>
+      </div>
+      <div className="form-grid">
+        <label className="field" htmlFor="timezone">Timezone<input id="timezone" className="input" value={form.timezone} onChange={set('timezone')}/></label>
+        <label className="field" htmlFor="lowstock">Default low-stock level<input id="lowstock" className="input" type="number" min="0" step="1" value={form.lowStockDefault} onChange={set('lowStockDefault')}/></label>
+      </div>
+      {error && <div className="notice reveal" role="alert">{error}</div>}
+      <div><button className="btn" type="submit">Save</button></div>
+      <div className="muted" style={{fontSize: 13}}>
+        The prefix is used for the next SKU and order number; the currency changes every price shown.
+      </div>
+    </form>}
 
-      <div className="stack">
-        <div className="card"><h3 style={{marginTop: 0}}>Integrations</h3>
-          <p>AI product analysis: configure OPENAI_API_KEY (needs the Node build).</p>
-          <p>eBay: integration-ready; OAuth credentials required.</p>
-          <p>Vinted: manual workflow by default; API can be added when access is available.</p>
-        </div>
-
-        <div className="card"><h3 style={{marginTop: 0}}>Accounts</h3>
-          <div className="stack">
-            {ACCOUNTS.map(a => <div className="row" key={a.username}>
-              <span><b>{a.username}</b> <span className="muted">/ {a.password}</span></span>
-              <span className="badge">{a.role}</span>
-            </div>)}
-          </div>
-          <div className="notice" style={{marginTop: 12, fontSize: 13}}>
-            Accounts are defined in <code>lib/auth.ts</code> and ship in the browser
-            bundle, so the sign-in screen organises the app rather than securing it.
-            Changing a password means editing that file and rebuilding.
-          </div>
-        </div>
-
-        <div className="card"><h3 style={{marginTop: 0}}>Data</h3>
-          <p className="muted" style={{marginTop: 0}}>
-            Products, orders and movements live in this browser only. They are not
-            shared with other devices and clearing site data wipes them.
-          </p>
-          {confirmReset
-            ? <div className="stack reveal">
-                <div className="notice">This removes every product, order and movement you have added and puts the three demo products back.</div>
-                <div className="row" style={{justifyContent: 'flex-end', gap: 10}}>
-                  <button className="btn secondary" type="button" onClick={() => setConfirmReset(false)}>Keep my data</button>
-                  <button className="btn danger" type="button" onClick={() => { resetDemoData(); setConfirmReset(false); setToast('Demo data restored'); }}>Reset everything</button>
-                </div>
-              </div>
-            : <button className="btn secondary" type="button" onClick={() => setConfirmReset(true)}>Reset demo data</button>}
+    {tab === 'users' && <div className="stack">
+      <div className="card">
+        <h3 style={{marginTop: 0}}>Accounts</h3>
+        <div style={{overflowX: 'auto'}}><table className="table">
+          <thead><tr><th>Username</th><th>Password</th><th>Name</th><th>Role</th></tr></thead>
+          <tbody>{ACCOUNTS.map(a => <tr key={a.username}>
+            <td><b>{a.username}</b></td><td className="muted">{a.password}</td><td>{a.name}</td>
+            <td><span className="badge">{ROLE_LABELS[a.role]}</span></td>
+          </tr>)}</tbody>
+        </table></div>
+        <div className="notice" style={{marginTop: 12, fontSize: 13}}>
+          Accounts live in <code>lib/auth.ts</code> and ship inside the browser bundle, so the sign-in
+          screen organises the app rather than securing it. Creating and disabling real users needs
+          Supabase Auth and the RLS policies.
         </div>
       </div>
-    </div>
+      <div className="card">
+        <h3 style={{marginTop: 0}}>What each role can do</h3>
+        <div style={{overflowX: 'auto'}}><table className="table">
+          <thead><tr><th>Area</th><th>Admin</th><th>Manager</th><th>Warehouse</th><th>Listing</th></tr></thead>
+          <tbody>
+            <tr><td>Add / edit products</td><td>✓</td><td>✓</td><td>add only</td><td>edit only</td></tr>
+            <tr><td>Receive / remove / move stock</td><td>✓</td><td>✓</td><td>✓</td><td>—</td></tr>
+            <tr><td>Take a sale</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>Confirm delivery / collection</td><td>✓</td><td>✓</td><td>✓</td><td>—</td></tr>
+            <tr><td>See cost and profit</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>Suppliers and purchases</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>Marketplace listings</td><td>✓</td><td>✓</td><td>—</td><td>✓</td></tr>
+            <tr><td>Reports</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>Audit log</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>Settings</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>}
+
+    {tab === 'integrations' && <div className="split">
+      <form className="card stack" onSubmit={submit}>
+        <h3 style={{marginTop: 0}}>AI assistant</h3>
+        <label className="check"><input type="checkbox" checked={form.aiEnabled} onChange={e => setForm(f => ({...f, aiEnabled: e.target.checked}))}/> Enable AI analysis</label>
+        <label className="field" htmlFor="ailimit">Daily analysis limit<input id="ailimit" className="input" type="number" min="0" step="1" value={form.aiDailyLimit} onChange={set('aiDailyLimit')}/></label>
+        <div className="muted" style={{fontSize: 13}}>
+          AI only runs when somebody presses <b>Analyse with AI</b> — never automatically. Usage is
+          logged on the Audit page. The API key lives on the server, never in the browser.
+        </div>
+        {error && <div className="notice reveal" role="alert">{error}</div>}
+        <div><button className="btn" type="submit">Save</button></div>
+      </form>
+      <div className="card">
+        <h3 style={{marginTop: 0}}>Marketplaces</h3>
+        <p><b>eBay</b> — the data model stores listing ID, price, status and order ID, so the official
+          API can be connected later without changing the schema. SKU is the matching key.</p>
+        <p><b>Vinted</b> — manual reference and status for now; the same fields work for an API later.</p>
+        <p><b>Facebook / Website / Manual</b> — recorded as sales channels on every order.</p>
+        <div className="notice" style={{fontSize: 13}}>
+          Live marketplace sync needs a server and your seller credentials. The static build cannot
+          hold either.
+        </div>
+      </div>
+    </div>}
+
+    {tab === 'data' && <div className="split">
+      <div className="card">
+        <h3 style={{marginTop: 0}}>Export</h3>
+        <p className="muted" style={{marginTop: 0}}>Download everything as CSV for Excel or a backup.</p>
+        <div className="stack">
+          <button className="btn secondary" type="button" onClick={() => downloadCsv('hizli-products.csv', state.products.map(p => ({
+            SKU: p.sku, Title: p.title, Category: p.category, Condition: p.condition,
+            Rack: p.rack, Bay: p.bay, Level: p.level, Physical: p.physical, Reserved: p.reserved,
+            Cost: p.cost, TargetPrice: p.targetPrice, eBay: p.ebayStatus, Vinted: p.vintedStatus
+          })))}>Export products</button>
+          <button className="btn secondary" type="button" onClick={() => downloadCsv('hizli-orders.csv', state.orders.map(o => ({
+            Order: o.orderNumber, Date: o.createdAt, Channel: o.channel, SKU: o.sku,
+            Qty: o.qty, UnitPrice: o.unitPrice, Fee: o.marketplaceFee, Shipping: o.shippingCost, Status: o.status
+          })))}>Export orders</button>
+          <button className="btn secondary" type="button" onClick={() => downloadCsv('hizli-movements.csv', state.movements.map(m => ({
+            When: m.createdAt, SKU: m.sku, Type: m.type, Qty: m.quantity, After: m.newQty, Reason: m.reason, User: m.actor
+          })))}>Export stock movements</button>
+        </div>
+      </div>
+      <div className="card">
+        <h3 style={{marginTop: 0}}>Where this data lives</h3>
+        <p className="muted" style={{marginTop: 0}}>
+          Products, orders, movements and settings are kept in <b>this browser only</b>. They are not
+          shared with other devices or staff, and clearing site data wipes them. Connecting Supabase
+          is what makes the data shared, backed up and real.
+        </p>
+        {confirmReset
+          ? <div className="stack reveal">
+              <div className="notice">This removes every product, order and movement you have added and puts the demo data back.</div>
+              <div className="row" style={{justifyContent: 'flex-end', gap: 10}}>
+                <button className="btn secondary" type="button" onClick={() => setConfirmReset(false)}>Keep my data</button>
+                <button className="btn danger" type="button" onClick={() => { resetDemoData(); setConfirmReset(false); setToast('Demo data restored'); }}>Reset everything</button>
+              </div>
+            </div>
+          : <button className="btn secondary" type="button" onClick={() => setConfirmReset(true)}>Reset demo data</button>}
+      </div>
+    </div>}
 
     {toast && <Toast message={toast} onDone={() => setToast('')}/>}
   </div>;

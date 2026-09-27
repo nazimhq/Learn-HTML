@@ -1,7 +1,7 @@
 'use client';
 
 import {useState} from 'react';
-import {signIn, ACCOUNTS} from '@/lib/auth';
+import {signIn, ACCOUNTS, ROLE_LABELS} from '@/lib/auth';
 import {notifySessionChange} from '@/lib/useSession';
 
 export default function LoginScreen() {
@@ -18,12 +18,6 @@ export default function LoginScreen() {
     } catch (err) {
       setError((err as Error).message);
     }
-  }
-
-  function useAccount(u: string, p: string) {
-    setUsername(u);
-    setPassword(p);
-    setError('');
   }
 
   return <div className="login-shell">
@@ -44,16 +38,16 @@ export default function LoginScreen() {
 
       <div className="login-accounts">
         <div className="label" style={{marginBottom: 8}}>Demo accounts — tap to fill</div>
-        {ACCOUNTS.map(a => <button key={a.username} type="button" className="account-row" onClick={() => useAccount(a.username, a.password)}>
+        {ACCOUNTS.map(a => <button key={a.username} type="button" className="account-row"
+          onClick={() => { setUsername(a.username); setPassword(a.password); setError(''); }}>
           <span><b>{a.username}</b> <span className="muted">/ {a.password}</span></span>
-          <span className="badge">{a.role}</span>
+          <span className="badge">{ROLE_LABELS[a.role]}</span>
         </button>)}
       </div>
 
       <div className="notice" style={{marginTop: 16, fontSize: 13}}>
-        These accounts live in the JavaScript bundle, so this screen keeps the
-        app tidy — it does not secure it. Real accounts need Supabase Auth and
-        the row-level security policies.
+        These accounts live in the JavaScript bundle, so this screen keeps the app tidy — it does not
+        secure it. Real accounts need Supabase Auth and the row-level security policies.
       </div>
     </div>
   </div>;

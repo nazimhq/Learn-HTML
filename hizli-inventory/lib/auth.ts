@@ -1,29 +1,31 @@
 'use client';
 
-import type {Role} from './store';
+import type {Role} from './types';
 
 /* ----------------------------------------------------------------------------
    Sign-in for the static build.
 
-   This is a UI gate, not security. The account list ships inside the JavaScript
-   bundle, so anyone who opens devtools can read it and walk straight past this
-   screen. It exists so the app has roles and an audit actor, and so a shared
-   warehouse tablet does not sit on the Settings page.
+   This is a UI gate, not security: the account list ships inside the
+   JavaScript bundle, so anyone who opens devtools can read it. It gives the
+   app roles and an audit actor, and keeps a shared warehouse tablet off the
+   cost and profit screens.
 
-   Real auth needs a server: Supabase Auth plus the RLS policies, with the
-   profiles.role column in supabase/schema.sql driving permissions.
+   Real auth needs a server — Supabase Auth plus the RLS policies, with
+   profiles.role driving permissions.
 ---------------------------------------------------------------------------- */
 
 export type Account = {username: string; password: string; name: string; role: Role};
 
 export const ACCOUNTS: Account[] = [
   {username: 'admin', password: 'Hizli@2026', name: 'Hizli Admin', role: 'admin'},
-  {username: 'warehouse', password: 'Store@2026', name: 'Warehouse Staff', role: 'warehouse'}
+  {username: 'manager', password: 'Manager@2026', name: 'Warehouse Manager', role: 'manager'},
+  {username: 'warehouse', password: 'Store@2026', name: 'Warehouse Staff', role: 'warehouse'},
+  {username: 'listing', password: 'Listing@2026', name: 'Listing Staff', role: 'listing'}
 ];
 
 export type Session = {username: string; name: string; role: Role};
 
-const KEY = 'hizli.session.v1';
+const KEY = 'hizli.session.v2';
 
 export function currentSession(): Session | null {
   if (typeof window === 'undefined') return null;
@@ -49,11 +51,53 @@ export function signOut() {
   try { window.sessionStorage.removeItem(KEY); } catch {}
 }
 
-/** Only an admin gets Settings, Quick Sale and product deletion. */
-export const can = {
-  manageSettings: (s: Session | null) => s?.role === 'admin',
-  sell: (s: Session | null) => s?.role === 'admin',
-  deleteProduct: (s: Session | null) => s?.role === 'admin',
-  addProduct: (s: Session | null) => !!s,
-  adjustStock: (s: Session | null) => !!s
+/* -------------------------- permission matrix (§4) ------------------------- */
+
+export type Permission =
+  | 'product.view' | 'product.create' | 'product.edit' | 'product.archive'
+  | 'stock.receive' | 'stock.remove' | 'stock.move'
+  | 'order.view' | 'order.create' | 'order.complete' | 'order.cancel'
+  | 'cost.view' | 'profit.view'
+  | 'supplier.manage' | 'purchase.view'
+  | 'report.view' | 'audit.view'
+  | 'listing.manage' | 'ai.run'
+  | 'settings.manage' | 'user.manage';
+
+const MATRIX: Record<Role, Permission[]> = {
+  admin: [
+    'product.view', 'product.create', 'product.edit', 'product.archive',
+    'stock.receive', 'stock.remove', 'stock.move',
+    'order.view', 'order.create', 'order.complete', 'order.cancel',
+    'cost.view', 'profit.view', 'supplier.manage', 'purchase.view',
+    'report.view', 'audit.view', 'listing.manage', 'ai.run',
+    'settings.manage', 'user.manage'
+  ],
+  manager: [
+    'product.view', 'product.create', 'product.edit', 'product.archive',
+    'stock.receive', 'stock.remove', 'stock.move',
+    'order.view', 'order.create', 'order.complete', 'order.cancel',
+    'cost.view', 'profit.view', 'supplier.manage', 'purchase.view',
+    'report.view', 'listing.manage', 'ai.run'
+  ],
+  // no cost, no profit — spec §45
+  warehouse: [
+    'product.view', 'product.create',
+    'stock.receive', 'stock.remove', 'stock.move',
+    'order.view', 'order.complete',
+    'ai.run'
+  ],
+  listing: [
+    'product.view', 'product.edit',
+    'order.view',
+    'listing.manage', 'ai.run'
+  ]
+};
+
+export function can(session: Session | null, permission: Permission): boolean {
+  if (!session) return false;
+  return MATRIX[session.role].includes(permission);
+}
+
+export const ROLE_LABELS: Record<Role, string> = {
+  admin: 'Admin', manager: 'Manager', warehouse: 'Warehouse Staff', listing: 'Listing Staff'
 };

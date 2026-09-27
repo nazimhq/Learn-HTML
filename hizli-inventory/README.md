@@ -1,25 +1,41 @@
 # Hizli Inventory
 
-Photo-first inventory and warehouse management starter for Hizli UK.
+Photo-first inventory, warehouse and e-commerce management for Hizli UK.
+
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the system design, database
+schema, quantity logic, role matrix, AI architecture and the honest list of
+what is and is not built.
 
 ## Signing in
 
 | Username | Password | Role | Can |
 |---|---|---|---|
-| `admin` | `Hizli@2026` | admin | everything |
-| `warehouse` | `Store@2026` | warehouse | add products, adjust stock — no Settings, no Quick Sale, no delete |
+| `admin` | `Hizli@2026` | Admin | everything |
+| `manager` | `Manager@2026` | Manager | everything except Audit log and Settings |
+| `warehouse` | `Store@2026` | Warehouse | stock and fulfilment — **no cost or profit** |
+| `listing` | `Listing@2026` | Listing | products and marketplace listings only |
 
-Accounts are defined in `lib/auth.ts` and ship inside the browser bundle, so
-this is a UI gate, not security — anyone can read them in devtools. Real
-accounts need Supabase Auth and the RLS policies. The `user_role` enum in
-`supabase/schema.sql` is what these roles map onto.
+Accounts are in `lib/auth.ts` and ship inside the browser bundle, so this is a
+UI gate, not security. Real accounts need Supabase Auth and the RLS policies.
 
 ## Where data lives
 
-Products, orders, movements and settings are kept in each browser's
-`localStorage` (`lib/store.ts`). Nothing is shared between browsers or devices,
-and clearing site data wipes it. `lib/store.ts` is the single file to swap for
-Supabase queries — every page and dialog goes through it.
+`lib/store.ts` keeps everything in the browser's `localStorage`. It is **per
+browser** — not shared between staff or devices. That one file is the seam to
+swap for Supabase queries; no page touches storage directly.
+
+## Sections
+
+- **Dashboard** — today / yesterday / 7 days / month / year, pieces and money,
+  profit, sales by marketplace, stock position
+- **Inventory** — card and table view, search across every field, filters
+- **Stock** — *Stock In* (what you have) and *Stock Out* (what has run out)
+- **E-Commerce** — Orders, Today's orders, By marketplace. Confirm an order as
+  **Delivery** or **Collection**, or cancel it
+- **Suppliers** — suppliers and purchase batches
+- **Reports** — sales, valuation, low stock, dead stock, movements; all CSV
+- **Audit log** — actions, stock movements, AI usage
+- **Settings** — company, users and roles, integrations, data export
 
 ## Included
 - Dashboard
