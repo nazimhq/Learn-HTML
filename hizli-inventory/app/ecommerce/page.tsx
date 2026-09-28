@@ -53,7 +53,7 @@ export default function ECommercePage() {
     <div className="top">
       <div>
         <div className="eyebrow">Sales channels</div>
-        <div className="title">Orders</div>
+        <div className="title">E-Commerce</div>
         <div className="muted">eBay, Vinted, Facebook, website and warehouse sales in one place</div>
       </div>
       {can(session, 'order.create') && <button className="btn" type="button" onClick={() => setSelling(true)}>+ New sale</button>}

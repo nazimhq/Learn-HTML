@@ -2,7 +2,7 @@
 
 import {useState} from 'react';
 import Modal from './Modal';
-import {addProduct, getState, currencySymbol, recordAiUsage, aiUsedToday, PLACEHOLDER_IMAGE} from '@/lib/store';
+import {addProduct, getState, currencySymbol, recordAiUsage, aiUsedToday, findDuplicates, PLACEHOLDER_IMAGE} from '@/lib/store';
 import {CONDITIONS, TEST_STATUSES, COMPLETENESS} from '@/lib/types';
 import type {Condition, TestStatus, Completeness, AiAnalysis} from '@/lib/types';
 import {fileToDataUrl} from '@/lib/image';
@@ -44,6 +44,7 @@ export default function AddProductDialog({session, onClose, onSaved}: {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const duplicates = title.trim().length >= 3 ? findDuplicates({title, model}) : [];
   const aiAllowed = s.settings.aiEnabled && can(session, 'ai.run');
   const overLimit = aiUsedToday(s) >= s.settings.aiDailyLimit;
 
@@ -177,6 +178,12 @@ export default function AddProductDialog({session, onClose, onSaved}: {
       <label className="field" htmlFor="p-title">Title
         <input id="p-title" className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Black Dual Basket Air Fryer" required/>
       </label>
+
+      {duplicates.length > 0 && <div className="notice reveal">
+        <b>This may already exist.</b> {duplicates.map(d => `${d.product.sku} — ${d.product.title} (${d.why})`).join('; ')}.
+        Use the existing product from Inventory, or carry on if it really is a different item —
+        nothing is merged automatically.
+      </div>}
 
       <div className="form-grid">
         <label className="field" htmlFor="p-cat">Category

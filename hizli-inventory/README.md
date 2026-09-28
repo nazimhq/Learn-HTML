@@ -33,11 +33,14 @@ swap for Supabase queries; no page touches storage directly.
   profit, sales by marketplace, stock position
 - **Inventory** — card and table view, search across every field, filters
 - **Stock** — *Stock In* (what you have) and *Stock Out* (what has run out)
-- **E-Commerce** — Orders, Today's orders, By marketplace. Confirm an order as
-  **Delivery** or **Collection**, or cancel it
+- **E-Commerce** — Orders, Today's orders, Picking list, By marketplace.
+  Confirm an order as **Delivery** or **Collection**, or cancel it
 - **Suppliers** — suppliers and purchase batches
 - **Reports** — sales, valuation, low stock, dead stock, movements; all CSV
 - **Audit log** — actions, stock movements, AI usage
+- **Find by photo** — photograph an item and the app ranks the products whose
+  photos look like it, entirely on the device
+- **Scan** — barcode / QR to open a product, with typed-SKU fallback
 - **Import** — CSV import with a row-by-row preview and duplicate warnings
 - **Returns** — customer, marketplace and supplier returns, plus quarantine
 - **HR & Compliance** — staff, right-to-work checks, training expiry, action list
@@ -99,3 +102,10 @@ The bundle assumes it is served from the domain root. For a subfolder, set
 npm install && npm run build && npm start
 ```
 Works on Vercel, or on cPanel plans that offer "Setup Node.js App".
+
+
+## What is left
+
+See **[HANDOVER-PROMPT.md](HANDOVER-PROMPT.md)** — a ready-to-paste prompt per
+remaining piece of work (Supabase, eBay, Vinted, variants, documents, embedding
+similarity, AI pricing, warehouse map, 2FA).

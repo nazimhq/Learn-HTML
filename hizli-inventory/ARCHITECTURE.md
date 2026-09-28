@@ -132,6 +132,22 @@ choose **Delivery** or **Collection** → stock leaves, movement + audit written
 
 **Cancelling** releases the reservation instead.
 
+## 8b. Find a product by photo
+
+`lib/imagehash.ts` shrinks a photo to 9×8 greyscale and records whether each
+pixel is brighter than the one to its right — a 64-bit difference hash. Two
+photos are compared by Hamming distance.
+
+It runs on a canvas in the browser: no API, no key, nothing uploaded. It
+survives resizing and re-compression, and it is fast enough to compare a photo
+against the whole catalogue while the person waits.
+
+Its limit is honest and stated in the dialog: it compares **how pictures look**,
+not what the item is, so two black air fryers photographed alike will score
+highly. The result is a ranked shortlist for a person, never a decision.
+Barcode scanning (`components/ScannerDialog.tsx`, via the browser's
+`BarcodeDetector` with typed-SKU fallback) is the exact route when one exists.
+
 ## 9. AI architecture
 
 `lib/ai.ts` exposes `analyseProduct`, `generateEbayListing`,
@@ -175,8 +191,9 @@ server-side only, and 2FA.
 3. **Sales** — orders, marketplaces, reservation, delivery/collection ✅
 4. **Finance** — cost, fees, shipping, profit, reports, valuation ✅
 5. **eBay API** — auth, listing import, order import, stock sync ⛔ not built
-6. **Advanced AI** — find by photo, visual similarity, price suggestion
-   ⛔ not built (text/model/barcode duplicate detection **is** built)
+6. **Advanced AI** — find by photo ✅ (perceptual hash, offline), duplicate
+   detection ✅ (barcode / listing ID / model / title). Embedding-based visual
+   similarity and AI price suggestion ⛔ not built — see HANDOVER-PROMPT.md
 
 ## 13. Risks
 

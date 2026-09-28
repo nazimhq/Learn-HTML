@@ -3,14 +3,14 @@
 import {useEffect, useState} from 'react';
 import {useStore} from '@/lib/useStore';
 import {useSession} from '@/lib/useSession';
-import {saveSettings, resetDemoData, CURRENCIES} from '@/lib/store';
+import {saveSettings, resetDemoData, addWarehouse, CURRENCIES} from '@/lib/store';
 import {can, ACCOUNTS, ROLE_LABELS} from '@/lib/auth';
 import {downloadCsv} from '@/lib/csv';
 import Tabs from '@/components/Tabs';
 import Toast from '@/components/Toast';
 import type {Settings} from '@/lib/types';
 
-type Tab = 'company' | 'users' | 'integrations' | 'data';
+type Tab = 'company' | 'users' | 'warehouses' | 'integrations' | 'data';
 
 export default function SettingsPage() {
   const {state, ready} = useStore();
@@ -52,6 +52,7 @@ export default function SettingsPage() {
     <Tabs<Tab> active={tab} onChange={setTab} tabs={[
       {key: 'company', label: 'Company'},
       {key: 'users', label: 'Users & roles', count: ACCOUNTS.length},
+      {key: 'warehouses', label: 'Warehouses', count: state.warehouses.length},
       {key: 'integrations', label: 'Integrations'},
       {key: 'data', label: 'Data'}
     ]}/>
@@ -121,6 +122,40 @@ export default function SettingsPage() {
           </tbody>
         </table></div>
       </div>
+    </div>}
+
+    {tab === 'warehouses' && <div className="split">
+      <div className="card">
+        <h3 style={{marginTop: 0}}>Warehouses</h3>
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>Name</th><th>Address</th><th className="num">Products</th></tr></thead>
+          <tbody>{state.warehouses.map(w => <tr key={w.id}>
+            <td><b>{w.name}</b></td>
+            <td className="muted">{w.address || '—'}</td>
+            <td className="num">{state.products.filter(p => p.warehouse === w.name).length}</td>
+          </tr>)}</tbody>
+        </table></div>
+        <div className="muted" style={{fontSize: 13, marginTop: 12}}>
+          Stock is stored against a warehouse and a rack / bay / level / bin, so a second site can be
+          added without changing anything else.
+        </div>
+      </div>
+      <form className="card stack" onSubmit={e => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget as HTMLFormElement);
+        try {
+          const w = addWarehouse({name: String(f.get('wname') ?? ''), address: String(f.get('waddr') ?? '')}, session!.username);
+          setError('');
+          setToast(`${w.name} added`);
+          (e.currentTarget as HTMLFormElement).reset();
+        } catch (err) { setError((err as Error).message); }
+      }}>
+        <h3 style={{marginTop: 0}}>Add a warehouse</h3>
+        <label className="field" htmlFor="wname">Name<input id="wname" name="wname" className="input" placeholder="Unit 4" required/></label>
+        <label className="field" htmlFor="waddr">Address<input id="waddr" name="waddr" className="input"/></label>
+        {error && <div className="notice reveal" role="alert">{error}</div>}
+        <div><button className="btn" type="submit">Add warehouse</button></div>
+      </form>
     </div>}
 
     {tab === 'integrations' && <div className="split">

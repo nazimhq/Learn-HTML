@@ -11,6 +11,8 @@ import {lowStock} from '@/lib/sales';
 import Link2 from 'next/link';
 import AddProductDialog from './AddProductDialog';
 import EditProductDialog from './EditProductDialog';
+import PhotoSearchDialog from './PhotoSearchDialog';
+import ScannerDialog from './ScannerDialog';
 import Modal from './Modal';
 import Tabs from './Tabs';
 import Toast from './Toast';
@@ -29,6 +31,8 @@ export default function InventoryClient() {
   const [editing, setEditing] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [bulk, setBulk] = useState<'move' | 'threshold' | null>(null);
+  const [photoSearch, setPhotoSearch] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
 
@@ -68,7 +72,9 @@ export default function InventoryClient() {
         <div className="muted">{list.length} of {state.products.filter(p => !p.archived).length} products · photo-first search</div>
       </div>
       <div className="row" style={{gap: 10, flexWrap: 'wrap'}}>
-        {can(session, 'product.create') && <Link2 className="btn secondary" href="/import">Import CSV</Link2>}
+        <button className="btn secondary" type="button" onClick={() => setPhotoSearch(true)}>Find by photo</button>
+        <button className="btn secondary" type="button" onClick={() => setScanning(true)}>Scan</button>
+        {can(session, 'purchase.view') && can(session, 'product.create') && <Link2 className="btn secondary" href="/import">Import CSV</Link2>}
         {can(session, 'product.create') && <button className="btn" type="button" onClick={() => setAdding(true)}>+ Add Product</button>}
       </div>
     </div>
@@ -217,6 +223,9 @@ export default function InventoryClient() {
       onClose={() => setEditing(null)}
       onSaved={m => { setEditing(null); setToast(m); }}
     />}
+
+    {photoSearch && <PhotoSearchDialog onClose={() => setPhotoSearch(false)}/>}
+    {scanning && <ScannerDialog onClose={() => setScanning(false)}/>}
 
     {adding && session && <AddProductDialog
       session={session}

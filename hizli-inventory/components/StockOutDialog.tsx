@@ -2,7 +2,8 @@
 
 import {useState} from 'react';
 import Modal from './Modal';
-import {stockOut, STOCK_OUT_REASONS, available, type StockOutReason} from '@/lib/store';
+import {stockOut, STOCK_OUT_REASONS, available, StockShortfallError, type StockOutReason} from '@/lib/store';
+import {can} from '@/lib/auth';
 import type {Product} from '@/lib/types';
 import type {Session} from '@/lib/auth';
 
@@ -13,16 +14,26 @@ export default function StockOutDialog({product, session, onClose, onSaved}: {
   const [reason, setReason] = useState<StockOutReason>('Damaged');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [shortfall, setShortfall] = useState('');
+
+  function remove(override: boolean) {
+    setError('');
+    try {
+      stockOut({productId: product.id, qty: Number(qty), reason, notes, override}, session.username);
+      onSaved(`${qty} × ${product.sku} removed (${reason})${override ? ' — override logged' : ''}`);
+    } catch (err) {
+      if (err instanceof StockShortfallError && can(session, 'settings.manage')) {
+        setShortfall(err.message);
+      } else {
+        setError((err as Error).message);
+      }
+    }
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
-    try {
-      stockOut({productId: product.id, qty: Number(qty), reason, notes}, session.username);
-      onSaved(`${qty} × ${product.sku} removed (${reason})`);
-    } catch (err) {
-      setError((err as Error).message);
-    }
+    setShortfall('');
+    remove(false);
   }
 
   return <Modal title={`Remove stock — ${product.sku}`} onClose={onClose}>
@@ -49,9 +60,16 @@ export default function StockOutDialog({product, session, onClose, onSaved}: {
 
       {error && <div className="notice reveal" role="alert">{error}</div>}
 
+      {shortfall && <div className="notice reveal" role="alert">
+        <b>{shortfall}</b> As an admin you can force this through as a stock correction. The movement
+        and the audit entry will both be marked as an override.
+      </div>}
+
       <div className="row" style={{justifyContent: 'flex-end', gap: 10}}>
         <button className="btn secondary" type="button" onClick={onClose}>Cancel</button>
-        <button className="btn danger" type="submit">Remove stock</button>
+        {shortfall
+          ? <button className="btn danger" type="button" onClick={() => remove(true)}>Override and remove</button>
+          : <button className="btn danger" type="submit">Remove stock</button>}
       </div>
     </form>
   </Modal>;

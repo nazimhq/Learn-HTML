@@ -412,8 +412,13 @@ export function stockIn(input: StockInInput, actor: string) {
 export const STOCK_OUT_REASONS = ['Damaged', 'Missing', 'Supplier Return', 'Used Internally', 'Manual Correction', 'Other'] as const;
 export type StockOutReason = typeof STOCK_OUT_REASONS[number];
 
+export class StockShortfallError extends Error {
+  readonly overridable = true;
+  constructor(message: string) { super(message); this.name = 'StockShortfallError'; }
+}
+
 export function stockOut(
-  input: {productId: string; qty: number; reason: StockOutReason; notes: string},
+  input: {productId: string; qty: number; reason: StockOutReason; notes: string; override?: boolean},
   actor: string
 ) {
   const s = getState();
@@ -423,9 +428,12 @@ export function stockOut(
   if (input.notes.trim().length < 2) throw new Error('Add a note explaining this stock removal');
 
   const newQty = p.physical - input.qty;
-  if (newQty < 0) throw new Error(`${p.sku} only has ${p.physical} in stock`);
-  if (newQty < p.reserved) {
-    throw new Error(`${p.reserved} unit(s) are reserved for open orders, so stock cannot drop below that.`);
+  // an admin may force a correction through, but it is never silent (spec §30)
+  if (newQty < 0 && !input.override) {
+    throw new StockShortfallError(`${p.sku} only has ${p.physical} in stock.`);
+  }
+  if (newQty < p.reserved && !input.override) {
+    throw new StockShortfallError(`${p.reserved} unit(s) are reserved for open orders, so stock cannot drop below that.`);
   }
 
   const typeMap: Record<StockOutReason, MovementType> = {
@@ -436,14 +444,15 @@ export function stockOut(
   persist({
     ...s,
     products: s.products.map(x => x.id === p.id
-      ? {...x, physical: newQty, damaged: input.reason === 'Damaged' ? x.damaged + input.qty : x.damaged, updatedBy: actor, updatedAt: now()}
+      ? {...x, physical: Math.max(0, newQty), damaged: input.reason === 'Damaged' ? x.damaged + input.qty : x.damaged, updatedBy: actor, updatedAt: now()}
       : x),
     movements: [movement({
       product: p, type: typeMap[input.reason], quantity: input.qty,
       previousQty: p.physical, newQty, fromLocation: locationOf(p),
-      reason: `${input.reason} — ${input.notes.trim()}`, actor
+      reason: `${input.reason} — ${input.notes.trim()}${input.override ? ' [ADMIN OVERRIDE]' : ''}`, actor
     }), ...s.movements],
-    audit: [auditEntry(actor, 'stock.removed', 'product', p.id, `${input.qty} × ${p.sku} (${input.reason})`), ...s.audit]
+    audit: [auditEntry(actor, input.override ? 'stock.removed.override' : 'stock.removed', 'product', p.id,
+      `${input.qty} × ${p.sku} (${input.reason})${input.override ? ' — negative-stock override' : ''}`), ...s.audit]
   });
 }
 

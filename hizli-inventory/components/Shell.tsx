@@ -18,7 +18,7 @@ const NAV: NavItem[] = [
   {href: '/inventory', label: 'Inventory', permission: 'product.view'},
   {href: '/import', label: 'Import', permission: 'purchase.view'},
   {href: '/stock', label: 'Stock', permission: 'stock.receive'},
-  {href: '/ecommerce', label: 'Orders', permission: 'order.view'},
+  {href: '/ecommerce', label: 'E-Commerce', permission: 'order.view'},
   {href: '/returns', label: 'Returns', permission: 'order.view'},
   {href: '/suppliers', label: 'Suppliers', permission: 'purchase.view'},
   {href: '/hr', label: 'HR & Compliance', permission: 'hr.view'},
