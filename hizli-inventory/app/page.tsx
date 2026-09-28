@@ -44,10 +44,15 @@ export default function Dashboard() {
 
   return <div className="page">
     <div className="top">
-      <div><div className="title">Dashboard</div><div className="muted">{state.settings.company} — stock and sales overview</div></div>
+      <div>
+        <div className="eyebrow">Stock overview</div>
+        <div className="title">Dashboard</div>
+        <div className="muted">{state.settings.legalName} — stock and sales at a glance</div>
+      </div>
       <div className="row" style={{gap: 10}}>
         {can(session, 'order.create') && <Link className="btn" href="/ecommerce">+ New sale</Link>}
         {can(session, 'product.create') && <Link className="btn secondary" href="/inventory">+ Add product</Link>}
+        <Link className="btn secondary" href="/stock">View stock</Link>
       </div>
     </div>
 

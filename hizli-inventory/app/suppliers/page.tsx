@@ -60,7 +60,7 @@ export default function SuppliersPage() {
 
   return <div className="page">
     <div className="top">
-      <div><div className="title">Suppliers</div><div className="muted">Where the stock came from, and what it cost</div></div>
+      <div><div className="eyebrow">Where stock comes from</div><div className="title">Suppliers</div><div className="muted">Where the stock came from, and what it cost</div></div>
       {manage && <button className="btn" type="button" onClick={() => setDialog(tab)}>
         + {tab === 'suppliers' ? 'Add supplier' : 'New purchase batch'}
       </button>}

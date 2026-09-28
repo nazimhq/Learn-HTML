@@ -37,9 +37,52 @@ export function currentSession(): Session | null {
   }
 }
 
+/* ---------------------------- password overrides --------------------------- */
+
+const PW_KEY = 'hizli.passwords.v1';
+
+function readOverrides(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(PW_KEY);
+    return raw ? JSON.parse(raw) as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The bundled password unless it has been changed in this browser. */
+export function passwordFor(username: string): string {
+  const overrides = readOverrides();
+  return overrides[username] ?? ACCOUNTS.find(a => a.username === username)?.password ?? '';
+}
+
+export function passwordChanged(username: string): boolean {
+  return Boolean(readOverrides()[username]);
+}
+
+export function changePassword(username: string, current: string, next: string, confirm: string) {
+  if (passwordFor(username) !== current) throw new Error('Current password is wrong');
+  if (next.length < 8) throw new Error('New password must be at least 8 characters');
+  if (next === current) throw new Error('The new password is the same as the old one');
+  if (next !== confirm) throw new Error('The two new passwords do not match');
+  const overrides = readOverrides();
+  overrides[username] = next;
+  try {
+    localStorage.setItem(PW_KEY, JSON.stringify(overrides));
+  } catch {
+    throw new Error('Could not save the new password in this browser');
+  }
+}
+
+export function resetPasswords() {
+  try { localStorage.removeItem(PW_KEY); } catch {}
+}
+
 export function signIn(username: string, password: string): Session {
+  // a password changed in this browser wins over the bundled default
   const found = ACCOUNTS.find(a =>
-    a.username.toLowerCase() === username.trim().toLowerCase() && a.password === password
+    a.username.toLowerCase() === username.trim().toLowerCase() &&
+    passwordFor(a.username) === password
   );
   if (!found) throw new Error('Wrong username or password');
   const session: Session = {username: found.username, name: found.name, role: found.role};
@@ -61,7 +104,7 @@ export type Permission =
   | 'supplier.manage' | 'purchase.view'
   | 'report.view' | 'audit.view'
   | 'listing.manage' | 'ai.run'
-  | 'settings.manage' | 'user.manage';
+  | 'settings.manage' | 'user.manage' | 'hr.view' | 'hr.manage';
 
 const MATRIX: Record<Role, Permission[]> = {
   admin: [
@@ -70,14 +113,14 @@ const MATRIX: Record<Role, Permission[]> = {
     'order.view', 'order.create', 'order.complete', 'order.cancel',
     'cost.view', 'profit.view', 'supplier.manage', 'purchase.view',
     'report.view', 'audit.view', 'listing.manage', 'ai.run',
-    'settings.manage', 'user.manage'
+    'settings.manage', 'user.manage', 'hr.view', 'hr.manage'
   ],
   manager: [
     'product.view', 'product.create', 'product.edit', 'product.archive',
     'stock.receive', 'stock.remove', 'stock.move',
     'order.view', 'order.create', 'order.complete', 'order.cancel',
     'cost.view', 'profit.view', 'supplier.manage', 'purchase.view',
-    'report.view', 'listing.manage', 'ai.run'
+    'report.view', 'listing.manage', 'ai.run', 'hr.view'
   ],
   // no cost, no profit — spec §45
   warehouse: [

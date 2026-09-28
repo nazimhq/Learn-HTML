@@ -36,7 +36,7 @@ export default function AuditPage() {
 
   return <div className="page">
     <div className="top">
-      <div><div className="title">Audit log</div><div className="muted">Who changed what, and when — this list is never edited</div></div>
+      <div><div className="eyebrow">Traceability</div><div className="title">Audit log</div><div className="muted">Who changed what, and when — this list is never edited</div></div>
       <button className="btn secondary" type="button" onClick={exportCurrent}>Export CSV</button>
     </div>
 

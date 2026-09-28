@@ -73,6 +73,7 @@ export type Product = {
   reserved: number;
   damaged: number;
   quarantine: number;
+  quarantineReason: QuarantineReason | null;
   sold: number;
   returned: number;
   cost: number;
@@ -120,6 +121,7 @@ export type Order = {
   otherCosts: number;
   total: number;
   status: OrderStatus;
+  pickState: PickState;
   fulfilment: Fulfilment | null;
   notes: string;
   createdAt: string;
@@ -178,6 +180,10 @@ export type AuditEntry = {
 
 export type Settings = {
   company: string;
+  legalName: string;
+  location: string;
+  openingHours: string;
+  whatsapp: string;
   skuPrefix: string;
   currency: string;
   timezone: string;
@@ -194,23 +200,83 @@ export type AiUsage = {
   createdAt: string;
 };
 
+
+export const RETURN_TYPES = ['Customer Return', 'Marketplace Return', 'Supplier Return'] as const;
+export type ReturnType = typeof RETURN_TYPES[number];
+
+export const RETURN_OUTCOMES = ['Restock', 'Quarantine', 'Damaged', 'Return to supplier'] as const;
+export type ReturnOutcome = typeof RETURN_OUTCOMES[number];
+
+export type ProductReturn = {
+  id: string;
+  reference: string;
+  type: ReturnType;
+  orderId: string | null;
+  orderNumber: string;
+  productId: string;
+  sku: string;
+  title: string;
+  qty: number;
+  reason: string;
+  conditionAfter: Condition;
+  outcome: ReturnOutcome;
+  refundAmount: number;
+  notes: string;
+  actor: string;
+  createdAt: string;
+};
+
+export const QUARANTINE_REASONS = [
+  'Needs Testing', 'Needs Inspection', 'Possible Damage', 'Return Awaiting Decision'
+] as const;
+export type QuarantineReason = typeof QUARANTINE_REASONS[number];
+
+export type NotificationKind = 'low_stock' | 'out_of_stock' | 'needs_testing' | 'awaiting_dispatch' | 'large_adjustment' | 'duplicate';
+
+export type Notification = {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  detail: string;
+  href: string | null;
+  createdAt: string;
+  readAt: string | null;
+};
+
+export type Warehouse = {
+  id: string;
+  name: string;
+  address: string;
+  active: boolean;
+};
+
+export const PICK_STATES = ['Picking', 'Picked', 'Packed'] as const;
+export type PickState = typeof PICK_STATES[number];
+
 export type State = {
   products: Product[];
   orders: Order[];
   movements: Movement[];
   suppliers: Supplier[];
   batches: PurchaseBatch[];
+  returns: ProductReturn[];
+  warehouses: Warehouse[];
+  notifications: Notification[];
   audit: AuditEntry[];
   aiUsage: AiUsage[];
   settings: Settings;
   seq: number;
   orderSeq: number;
   batchSeq: number;
+  returnSeq: number;
 };
 
 export const CURRENCIES: Record<string, string> = {GBP: '£', USD: '$', EUR: '€', BDT: '৳'};
 
 export const available = (p: Product) => p.physical - p.reserved - p.quarantine;
+
+/** Everything on the shelf that is not sellable right now. */
+export const blocked = (p: Product) => p.reserved + p.quarantine;
 
 export const locationOf = (p: Product) =>
   [p.rack, p.bay, p.level].filter(Boolean).join('-') + (p.bin ? '-' + p.bin : '');

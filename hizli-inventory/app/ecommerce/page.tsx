@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {useStore} from '@/lib/useStore';
 import {useSession} from '@/lib/useSession';
 import {can} from '@/lib/auth';
-import {completeOrder, cancelOrder, setOrderPaid, money} from '@/lib/store';
+import {completeOrder, cancelOrder, setOrderPaid, setPickState, money} from '@/lib/store';
 import {ordersInPeriod, periodTotals, salesByChannel} from '@/lib/sales';
 import Tabs from '@/components/Tabs';
 import NewSaleDialog from '@/components/NewSaleDialog';
@@ -13,7 +13,7 @@ import ConfirmOrderDialog from '@/components/ConfirmOrderDialog';
 import Toast from '@/components/Toast';
 import type {Order, OrderStatus} from '@/lib/types';
 
-type Tab = 'orders' | 'today' | 'channels';
+type Tab = 'orders' | 'today' | 'picking' | 'channels';
 
 const badgeFor = (s: OrderStatus) =>
   s === 'Delivery' ? 'badge good'
@@ -52,8 +52,9 @@ export default function ECommercePage() {
   return <div className="page">
     <div className="top">
       <div>
-        <div className="title">E-Commerce</div>
-        <div className="muted">eBay, Vinted, Facebook, Website and warehouse sales in one place</div>
+        <div className="eyebrow">Sales channels</div>
+        <div className="title">Orders</div>
+        <div className="muted">eBay, Vinted, Facebook, website and warehouse sales in one place</div>
       </div>
       {can(session, 'order.create') && <button className="btn" type="button" onClick={() => setSelling(true)}>+ New sale</button>}
     </div>
@@ -82,13 +83,45 @@ export default function ECommercePage() {
       tabs={[
         {key: 'orders', label: 'Orders', count: state.orders.length},
         {key: 'today', label: "Today's orders", count: todayOrders.length},
+        {key: 'picking', label: 'Picking list', count: open.length},
         {key: 'channels', label: 'By marketplace'}
       ]}
     />
 
     {error && <div className="notice reveal" role="alert" style={{marginBottom: 16}}>{error}</div>}
 
-    {tab === 'channels'
+    {tab === 'picking'
+      ? (open.length === 0
+          ? <div className="card muted">Nothing to pick — every order is completed or cancelled.</div>
+          : <div className="inventory stagger">{open.map(o => {
+              const p = state.products.find(x => x.id === o.productId);
+              return <div className="card" key={o.id}>
+                {p && <img src={p.image} alt="" style={{width: '100%', height: 150, objectFit: 'cover', borderRadius: 10, background: 'var(--surface-3)'}}/>}
+                <div style={{marginTop: 12}}>
+                  <div className="row"><b>{o.orderNumber}</b><span className="badge">{o.channel}</span></div>
+                  <div style={{marginTop: 6}}>{o.title}</div>
+                  <div className="muted" style={{fontSize: 12, marginTop: 4}}>{o.sku}</div>
+                  <div className="row" style={{marginTop: 12}}>
+                    <span className="muted">Pick</span><b style={{fontSize: 18}}>{o.qty}</b>
+                  </div>
+                  <div className="row" style={{marginTop: 4}}>
+                    <span className="muted">Location</span>
+                    <b>{p ? [p.rack, p.bay, p.level].filter(Boolean).join('-') : '—'}</b>
+                  </div>
+                  <div className="row" style={{marginTop: 12}}>
+                    <span className={o.pickState === 'Packed' ? 'badge good' : o.pickState === 'Picked' ? 'badge' : 'badge warn'}>{o.pickState}</span>
+                    {can(session, 'order.complete') && <span className="row-actions">
+                      {o.pickState === 'Picking' && <button className="link-btn" type="button"
+                        onClick={() => act(() => setPickState(o.id, 'Picked', session!.username), `${o.orderNumber} picked`)}>Mark picked</button>}
+                      {o.pickState === 'Picked' && <button className="link-btn" type="button"
+                        onClick={() => act(() => setPickState(o.id, 'Packed', session!.username), `${o.orderNumber} packed`)}>Mark packed</button>}
+                      {o.pickState === 'Packed' && <button className="link-btn" type="button" onClick={() => setConfirming(o)}>Confirm</button>}
+                    </span>}
+                  </div>
+                </div>
+              </div>;
+            })}</div>)
+      : tab === 'channels'
       ? (channels.length === 0
           ? <div className="card muted">No completed sales yet this year.</div>
           : <div style={{overflowX: 'auto'}}>
@@ -125,7 +158,10 @@ export default function ECommercePage() {
                       <div className="muted" style={{fontSize: 12}}>{o.sku}</div>
                     </td>
                     <td className="num">{o.qty}</td>
-                    <td><span className={badgeFor(o.status)}>{o.status}</span></td>
+                    <td>
+                      <span className={badgeFor(o.status)}>{o.status}</span>
+                      {openOrder && <div className="muted" style={{fontSize: 11, marginTop: 3}}>{o.pickState}</div>}
+                    </td>
                     <td className="num">{money(o.unitPrice * o.qty, state)}</td>
                     <td className="row-actions">
                       {openOrder && can(session, 'order.complete') && <>

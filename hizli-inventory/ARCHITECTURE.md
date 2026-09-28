@@ -112,9 +112,15 @@ No file does two jobs, and nothing is one giant file.
 
 ## 7. Pages
 
-Dashboard · Inventory (card + table) · Stock (In / Out) · E-Commerce (Orders,
-Today, By marketplace) · Product (6 tabs) · Suppliers (+ batches) · Reports
-(5 reports, all CSV) · Audit log (actions, movements, AI usage) · Settings.
+Dashboard · Inventory (card + table, bulk actions, edit) · Import (CSV with
+preview) · Stock (In / Out) · Orders (orders, today, picking list, by
+marketplace) · Returns (+ quarantine) · Product (6 tabs) · Suppliers
+(+ batches) · HR & Compliance (staff, right to work, training, action list) ·
+Reports (5 reports, all CSV) · Audit (actions, movements, AI usage) · Settings.
+
+The interface is a dark top-navigation layout: brand, horizontal nav, alert
+bell, role with change-password and sign-out, a WhatsApp button, and a
+company strip carrying the trading name, location and opening hours.
 
 ## 8. User workflow
 
@@ -162,13 +168,15 @@ server-side only, and 2FA.
 ## 12. Development phases
 
 1. **Core** — products, photos, SKU, barcode, locations, stock in/out,
-   movements, visual inventory, search, audit ✅
+   movements, visual inventory, search, audit, CSV import, bulk actions,
+   returns, quarantine, picking, HR & compliance ✅
 2. **AI** — image analysis, confidence, human approval ✅ (needs a key for the
    real vision call)
 3. **Sales** — orders, marketplaces, reservation, delivery/collection ✅
 4. **Finance** — cost, fees, shipping, profit, reports, valuation ✅
 5. **eBay API** — auth, listing import, order import, stock sync ⛔ not built
-6. **Advanced AI** — find by photo, visual duplicates, price suggestion ⛔ not built
+6. **Advanced AI** — find by photo, visual similarity, price suggestion
+   ⛔ not built (text/model/barcode duplicate detection **is** built)
 
 ## 13. Risks
 

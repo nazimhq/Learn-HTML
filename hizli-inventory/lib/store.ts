@@ -2,9 +2,11 @@
 
 import type {
   State, Product, Order, Movement, Supplier, PurchaseBatch, AuditEntry,
-  Settings, Condition, Channel, OrderStatus, Fulfilment, MovementType, AiAnalysis
+  Settings, Condition, Channel, OrderStatus, Fulfilment, MovementType, AiAnalysis,
+  ProductReturn, ReturnType, ReturnOutcome, QuarantineReason, Notification,
+  NotificationKind, Warehouse, PickState
 } from './types';
-import {CURRENCIES, available, locationOf} from './types';
+import {CURRENCIES, available, blocked, locationOf} from './types';
 
 export * from './types';
 
@@ -21,9 +23,14 @@ export * from './types';
      - available stock never goes negative
 ---------------------------------------------------------------------------- */
 
-const KEY = 'hizli.inventory.v2';
+const KEY = 'hizli.inventory.v3';
 
-export {CURRENCIES, available, locationOf};
+const CONDITION_VALUES = [
+  'New', 'New Other', 'Open Box', 'Used', 'Customer Return',
+  'Untested', 'Damaged', 'Faulty', 'Incomplete', 'For Parts'
+] as const;
+
+export {CURRENCIES, available, blocked, locationOf};
 
 function now() { return new Date().toISOString(); }
 function uid(p: string) { return p + '-' + Math.random().toString(36).slice(2, 10); }
@@ -42,7 +49,7 @@ function demoProduct(over: Partial<Product>): Product {
     category: '', subcategory: '', brand: '', model: '', colour: '', material: '',
     condition: 'Untested', conditionNotes: '', testStatus: 'Not Tested', completeness: 'Unknown',
     image: '', images: [],
-    physical: 0, reserved: 0, damaged: 0, quarantine: 0, sold: 0, returned: 0,
+    physical: 0, reserved: 0, damaged: 0, quarantine: 0, quarantineReason: null, sold: 0, returned: 0,
     cost: 0, targetPrice: 0,
     supplierId: null, batchId: null, receivedAt: now(),
     warehouse: 'Main', rack: '', bay: '', level: '', bin: '',
@@ -164,6 +171,7 @@ function seed(): State {
       otherCosts: 0,
       total: Number((price * qty).toFixed(2)),
       status: fulfilment,
+      pickState: 'Packed' as PickState,
       fulfilment,
       notes: '',
       createdAt: daysAgo(ago, 10),
@@ -178,7 +186,7 @@ function seed(): State {
     marketplaceOrderId: '07-14822-91', customerRef: 'A. Patel',
     productId: '1', sku: 'HZ-AF-000124', title: 'Black Dual Basket Air Fryer',
     qty: 1, unitPrice: 39.99, shippingCost: 3.5, marketplaceFee: 4.4, otherCosts: 0,
-    total: 39.99, status: 'Picking', fulfilment: null, notes: '',
+    total: 39.99, status: 'Picking', pickState: 'Picking', fulfilment: null, notes: '',
     createdAt: daysAgo(0, 9), completedAt: null
   });
   orderSeq += 1;
@@ -187,7 +195,7 @@ function seed(): State {
     marketplaceOrderId: '', customerRef: 'J. Owusu',
     productId: '3', sku: 'HZ-KT-000126', title: '3 Tier Black Utility Trolley',
     qty: 1, unitPrice: 24.99, shippingCost: 0, marketplaceFee: 2.75, otherCosts: 0,
-    total: 24.99, status: 'Paid', fulfilment: null, notes: '',
+    total: 24.99, status: 'Paid', pickState: 'Picking', fulfilment: null, notes: '',
     createdAt: daysAgo(0, 8), completedAt: null
   });
 
@@ -195,13 +203,21 @@ function seed(): State {
   return {
     products, orders, suppliers, batches,
     movements: [],
+    returns: [],
+    warehouses: [{id: 'w1', name: 'Main', address: 'Cradley Heath, West Midlands', active: true}],
+    notifications: [],
     audit: [],
     aiUsage: [],
     settings: {
-      company: 'Hizli', skuPrefix: 'HZ', currency: 'GBP', timezone: 'Europe/London',
+      company: 'Hizli Wholesale',
+      legalName: 'Hizli General Trading Ltd',
+      location: 'Cradley Heath, West Midlands',
+      openingHours: 'Mon–Sat, 9am–5pm',
+      whatsapp: '447000000000',
+      skuPrefix: 'HZ', currency: 'GBP', timezone: 'Europe/London',
       lowStockDefault: 2, aiEnabled: true, aiDailyLimit: 100
     },
-    seq: 126, orderSeq, batchSeq: 42
+    seq: 126, orderSeq, batchSeq: 42, returnSeq: 0
   };
 }
 
@@ -245,7 +261,7 @@ export function money(amount: number, s: State = getState()) {
   return currencySymbol(s) + Number(amount).toFixed(2);
 }
 
-function audit(actor: string, action: string, entityType: string, entityId: string, detail: string): AuditEntry {
+function auditEntry(actor: string, action: string, entityType: string, entityId: string, detail: string): AuditEntry {
   return {id: uid('au'), actor, action, entityType, entityId, detail, createdAt: now()};
 }
 
@@ -321,7 +337,7 @@ export function addProduct(input: NewProduct, actor: string): Product {
       previousQty: 0, newQty: input.physical,
       toLocation: locationOf(product), reason: 'Initial stock received', actor
     }), ...s.movements],
-    audit: [audit(actor, 'product.created', 'product', product.id, `${sku} — ${product.title}`), ...s.audit]
+    audit: [auditEntry(actor, 'product.created', 'product', product.id, `${sku} — ${product.title}`), ...s.audit]
   });
   return product;
 }
@@ -341,7 +357,7 @@ export function updateProduct(id: string, patch: Partial<Product>, actor: string
   persist({
     ...s,
     products: s.products.map(x => x.id === id ? {...x, ...patch, updatedBy: actor, updatedAt: now()} : x),
-    audit: [audit(actor, 'product.updated', 'product', id, changed.join(', ') || 'no change'), ...s.audit]
+    audit: [auditEntry(actor, 'product.updated', 'product', id, changed.join(', ') || 'no change'), ...s.audit]
   });
 }
 
@@ -355,7 +371,7 @@ export function archiveProduct(id: string, actor: string, archived = true) {
   persist({
     ...s,
     products: s.products.map(x => x.id === id ? {...x, archived, updatedBy: actor, updatedAt: now()} : x),
-    audit: [audit(actor, archived ? 'product.archived' : 'product.restored', 'product', id, p.sku), ...s.audit]
+    audit: [auditEntry(actor, archived ? 'product.archived' : 'product.restored', 'product', id, p.sku), ...s.audit]
   });
 }
 
@@ -389,7 +405,7 @@ export function stockIn(input: StockInInput, actor: string) {
       previousQty: p.physical, newQty, toLocation: locationOf(p),
       reason: input.reason.trim(), actor
     }), ...s.movements],
-    audit: [audit(actor, 'stock.received', 'product', p.id, `${input.qty} × ${p.sku} @ ${input.unitCost}`), ...s.audit]
+    audit: [auditEntry(actor, 'stock.received', 'product', p.id, `${input.qty} × ${p.sku} @ ${input.unitCost}`), ...s.audit]
   });
 }
 
@@ -427,7 +443,7 @@ export function stockOut(
       previousQty: p.physical, newQty, fromLocation: locationOf(p),
       reason: `${input.reason} — ${input.notes.trim()}`, actor
     }), ...s.movements],
-    audit: [audit(actor, 'stock.removed', 'product', p.id, `${input.qty} × ${p.sku} (${input.reason})`), ...s.audit]
+    audit: [auditEntry(actor, 'stock.removed', 'product', p.id, `${input.qty} × ${p.sku} (${input.reason})`), ...s.audit]
   });
 }
 
@@ -452,7 +468,7 @@ export function moveStock(
       fromLocation: from, toLocation: to,
       reason: input.notes.trim() || 'Location change', actor
     }), ...s.movements],
-    audit: [audit(actor, 'stock.moved', 'product', p.id, `${p.sku}: ${from} → ${to}`), ...s.audit]
+    audit: [auditEntry(actor, 'stock.moved', 'product', p.id, `${p.sku}: ${from} → ${to}`), ...s.audit]
   });
 }
 
@@ -485,7 +501,7 @@ export function recordSale(input: SaleInput, actor: string): Order {
     qty: input.qty, unitPrice: input.unitPrice,
     shippingCost: input.shippingCost, marketplaceFee: input.marketplaceFee, otherCosts: 0,
     total: Number((input.unitPrice * input.qty).toFixed(2)),
-    status: 'Picking', fulfilment: null, notes: '',
+    status: 'Picking', pickState: 'Picking', fulfilment: null, notes: '',
     createdAt: now(), completedAt: null
   };
 
@@ -499,7 +515,7 @@ export function recordSale(input: SaleInput, actor: string): Order {
       previousQty: p.reserved, newQty: p.reserved + input.qty,
       reason: `Reserved for ${order.orderNumber}`, reference: order.orderNumber, actor
     }), ...s.movements],
-    audit: [audit(actor, 'order.created', 'order', order.id, `${order.orderNumber} — ${input.qty} × ${p.sku}`), ...s.audit]
+    audit: [auditEntry(actor, 'order.created', 'order', order.id, `${order.orderNumber} — ${input.qty} × ${p.sku}`), ...s.audit]
   });
   return order;
 }
@@ -533,7 +549,7 @@ export function completeOrder(orderId: string, fulfilment: Fulfilment, actor: st
       reason: `${fulfilment} — ${order.orderNumber} (${order.channel})`,
       reference: order.orderNumber, actor
     }), ...s.movements],
-    audit: [audit(actor, 'order.completed', 'order', order.id, `${order.orderNumber} as ${fulfilment}`), ...s.audit]
+    audit: [auditEntry(actor, 'order.completed', 'order', order.id, `${order.orderNumber} as ${fulfilment}`), ...s.audit]
   });
 }
 
@@ -559,7 +575,7 @@ export function cancelOrder(orderId: string, actor: string) {
           reason: `Cancelled ${order.orderNumber}`, reference: order.orderNumber, actor
         }), ...s.movements]
       : s.movements,
-    audit: [audit(actor, 'order.cancelled', 'order', order.id, order.orderNumber), ...s.audit]
+    audit: [auditEntry(actor, 'order.cancelled', 'order', order.id, order.orderNumber), ...s.audit]
   });
 }
 
@@ -570,7 +586,7 @@ export function setOrderPaid(orderId: string, actor: string) {
   persist({
     ...s,
     orders: s.orders.map(o => o.id === orderId ? {...o, status: 'Paid' as OrderStatus} : o),
-    audit: [audit(actor, 'order.paid', 'order', order.id, order.orderNumber), ...s.audit]
+    audit: [auditEntry(actor, 'order.paid', 'order', order.id, order.orderNumber), ...s.audit]
   });
 }
 
@@ -583,7 +599,7 @@ export function addSupplier(input: Omit<Supplier, 'id' | 'createdAt'>, actor: st
   persist({
     ...s,
     suppliers: [supplier, ...s.suppliers],
-    audit: [audit(actor, 'supplier.created', 'supplier', supplier.id, supplier.name), ...s.audit]
+    audit: [auditEntry(actor, 'supplier.created', 'supplier', supplier.id, supplier.name), ...s.audit]
   });
   return supplier;
 }
@@ -604,7 +620,7 @@ export function addBatch(
   persist({
     ...s, batchSeq,
     batches: [batch, ...s.batches],
-    audit: [audit(actor, 'batch.created', 'batch', batch.id, batch.code), ...s.audit]
+    audit: [auditEntry(actor, 'batch.created', 'batch', batch.id, batch.code), ...s.audit]
   });
   return batch;
 }
@@ -616,7 +632,7 @@ export function recordAiUsage(actor: string, images: number, provider: string) {
   persist({
     ...s,
     aiUsage: [{id: uid('ai'), actor, images, provider, createdAt: now()}, ...s.aiUsage],
-    audit: [audit(actor, 'ai.analysis', 'product', '-', `${images} image(s) via ${provider}`), ...s.audit]
+    audit: [auditEntry(actor, 'ai.analysis', 'product', '-', `${images} image(s) via ${provider}`), ...s.audit]
   });
 }
 
@@ -635,10 +651,390 @@ export function saveSettings(next: Settings, actor: string) {
   persist({
     ...s,
     settings: {...next, skuPrefix: next.skuPrefix.toUpperCase()},
-    audit: [audit(actor, 'settings.updated', 'settings', '-', `${next.company} / ${next.currency}`), ...s.audit]
+    audit: [auditEntry(actor, 'settings.updated', 'settings', '-', `${next.company} / ${next.currency}`), ...s.audit]
   });
 }
 
 export function resetDemoData() {
   persist(seed());
+}
+
+/* --------------------------------- returns --------------------------------- */
+
+export type ReturnInput = {
+  type: ReturnType;
+  orderId: string | null;
+  productId: string;
+  qty: number;
+  reason: string;
+  conditionAfter: Condition;
+  outcome: ReturnOutcome;
+  refundAmount: number;
+  notes: string;
+};
+
+/** A return puts units back on the shelf, into quarantine, or writes them off.
+ *  Which one is a decision a person makes — never the default (spec §42). */
+export function recordReturn(input: ReturnInput, actor: string): ProductReturn {
+  const s = getState();
+  const p = s.products.find(x => x.id === input.productId);
+  if (!p) throw new Error('Product not found');
+  if (!Number.isInteger(input.qty) || input.qty <= 0) throw new Error('Quantity must be a whole number above zero');
+  if (input.reason.trim().length < 2) throw new Error('Give a reason for the return');
+
+  const order = input.orderId ? s.orders.find(o => o.id === input.orderId) : undefined;
+  const returnSeq = s.returnSeq + 1;
+
+  const entry: ProductReturn = {
+    id: uid('ret'),
+    reference: `${s.settings.skuPrefix}-RET-${String(returnSeq).padStart(4, '0')}`,
+    type: input.type,
+    orderId: order?.id ?? null,
+    orderNumber: order?.orderNumber ?? '',
+    productId: p.id, sku: p.sku, title: p.title,
+    qty: input.qty,
+    reason: input.reason.trim(),
+    conditionAfter: input.conditionAfter,
+    outcome: input.outcome,
+    refundAmount: input.refundAmount,
+    notes: input.notes.trim(),
+    actor, createdAt: now()
+  };
+
+  let physical = p.physical;
+  let quarantine = p.quarantine;
+  let damaged = p.damaged;
+  let quarantineReason: QuarantineReason | null = p.quarantineReason;
+  let movementType: MovementType = 'customer_return';
+
+  if (input.type === 'Supplier Return') {
+    // stock leaves us and goes back to the supplier
+    if (p.physical - input.qty < p.reserved) {
+      throw new Error(`${p.reserved} unit(s) are reserved, so stock cannot drop below that.`);
+    }
+    physical = p.physical - input.qty;
+    movementType = 'supplier_return';
+  } else {
+    // stock comes back in
+    physical = p.physical + input.qty;
+    if (input.outcome === 'Quarantine') {
+      quarantine = p.quarantine + input.qty;
+      quarantineReason = 'Return Awaiting Decision';
+      movementType = 'quarantine';
+    } else if (input.outcome === 'Damaged') {
+      damaged = p.damaged + input.qty;
+      quarantine = p.quarantine + input.qty; // held out of available until written off
+      quarantineReason = 'Possible Damage';
+      movementType = 'damage';
+    }
+  }
+
+  persist({
+    ...s,
+    returnSeq,
+    returns: [entry, ...s.returns],
+    products: s.products.map(x => x.id === p.id
+      ? {...x, physical, quarantine, damaged, quarantineReason,
+         returned: x.returned + (input.type === 'Supplier Return' ? 0 : input.qty),
+         condition: input.type === 'Supplier Return' ? x.condition : input.conditionAfter,
+         testStatus: input.type === 'Supplier Return' ? x.testStatus : 'Not Tested',
+         updatedBy: actor, updatedAt: now()}
+      : x),
+    movements: [movement({
+      product: p, type: movementType, quantity: input.qty,
+      previousQty: p.physical, newQty: physical,
+      reason: `${entry.reference} — ${input.type}, ${input.outcome}: ${entry.reason}`,
+      reference: entry.reference, actor
+    }), ...s.movements],
+    audit: [auditEntry(actor, 'return.recorded', 'return', entry.id, `${entry.reference} — ${input.qty} × ${p.sku} (${input.outcome})`), ...s.audit]
+  });
+  return entry;
+}
+
+/* ------------------------------- quarantine -------------------------------- */
+
+export function setQuarantine(
+  input: {productId: string; qty: number; reason: QuarantineReason; notes: string},
+  actor: string
+) {
+  const s = getState();
+  const p = s.products.find(x => x.id === input.productId);
+  if (!p) throw new Error('Product not found');
+  if (!Number.isInteger(input.qty) || input.qty < 0) throw new Error('Quantity must be a whole number');
+  if (input.qty > p.physical - p.reserved) {
+    throw new Error(`Only ${p.physical - p.reserved} unit(s) can be quarantined — the rest are reserved.`);
+  }
+
+  persist({
+    ...s,
+    products: s.products.map(x => x.id === p.id
+      ? {...x, quarantine: input.qty, quarantineReason: input.qty > 0 ? input.reason : null, updatedBy: actor, updatedAt: now()}
+      : x),
+    movements: [movement({
+      product: p, type: 'quarantine', quantity: Math.abs(input.qty - p.quarantine),
+      previousQty: p.quarantine, newQty: input.qty,
+      reason: input.qty > 0 ? `${input.reason} — ${input.notes.trim() || 'held out of available stock'}` : 'Released from quarantine',
+      actor
+    }), ...s.movements],
+    audit: [auditEntry(actor, 'stock.quarantine', 'product', p.id, `${p.sku}: ${p.quarantine} → ${input.qty}`), ...s.audit]
+  });
+}
+
+/* ---------------------------- picking workflow ----------------------------- */
+
+export function setPickState(orderId: string, pickState: PickState, actor: string) {
+  const s = getState();
+  const order = s.orders.find(o => o.id === orderId);
+  if (!order) throw new Error('Order not found');
+  persist({
+    ...s,
+    orders: s.orders.map(o => o.id === orderId ? {...o, pickState} : o),
+    audit: [auditEntry(actor, 'order.' + pickState.toLowerCase(), 'order', order.id, order.orderNumber), ...s.audit]
+  });
+}
+
+/* ------------------------------ bulk actions ------------------------------- */
+
+export function bulkMove(ids: string[], loc: {rack: string; bay: string; level: string; bin: string}, actor: string) {
+  const s = getState();
+  if (ids.length === 0) throw new Error('Select at least one product');
+  if (!loc.rack.trim() || !loc.bay.trim() || !loc.level.trim()) throw new Error('Rack, bay and level are all needed');
+
+  const moves: Movement[] = [];
+  const products = s.products.map(p => {
+    if (!ids.includes(p.id)) return p;
+    const from = locationOf(p);
+    const moved = {...p, rack: loc.rack.toUpperCase(), bay: loc.bay, level: loc.level, bin: loc.bin, updatedBy: actor, updatedAt: now()};
+    moves.push(movement({
+      product: p, type: 'move', quantity: p.physical,
+      previousQty: p.physical, newQty: p.physical,
+      fromLocation: from, toLocation: locationOf(moved),
+      reason: 'Bulk location change', actor
+    }));
+    return moved;
+  });
+
+  persist({
+    ...s, products,
+    movements: [...moves, ...s.movements],
+    audit: [auditEntry(actor, 'bulk.move', 'product', ids.join(' '), `${ids.length} product(s) → ${loc.rack}-${loc.bay}-${loc.level}`), ...s.audit]
+  });
+}
+
+export function bulkThreshold(ids: string[], threshold: number, actor: string) {
+  const s = getState();
+  if (ids.length === 0) throw new Error('Select at least one product');
+  if (!Number.isInteger(threshold) || threshold < 0) throw new Error('Threshold must be zero or more');
+  persist({
+    ...s,
+    products: s.products.map(p => ids.includes(p.id) ? {...p, lowStockThreshold: threshold, updatedBy: actor, updatedAt: now()} : p),
+    audit: [auditEntry(actor, 'bulk.threshold', 'product', ids.join(' '), `${ids.length} product(s) → ${threshold}`), ...s.audit]
+  });
+}
+
+export function bulkArchive(ids: string[], archived: boolean, actor: string) {
+  const s = getState();
+  if (ids.length === 0) throw new Error('Select at least one product');
+  const stuck = s.products.filter(p => ids.includes(p.id) &&
+    s.orders.some(o => o.productId === p.id && (o.status === 'Picking' || o.status === 'Paid')));
+  if (archived && stuck.length > 0) {
+    throw new Error(`${stuck.map(p => p.sku).join(', ')} ${stuck.length === 1 ? 'is' : 'are'} on an open order.`);
+  }
+  persist({
+    ...s,
+    products: s.products.map(p => ids.includes(p.id) ? {...p, archived, updatedBy: actor, updatedAt: now()} : p),
+    audit: [auditEntry(actor, archived ? 'bulk.archive' : 'bulk.restore', 'product', ids.join(' '), `${ids.length} product(s)`), ...s.audit]
+  });
+}
+
+/* ---------------------------- duplicate detection --------------------------- */
+
+function normalise(v: string) {
+  return v.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Word overlap between two titles, 0..1. */
+function titleSimilarity(a: string, b: string) {
+  const wa = new Set(normalise(a).split(' ').filter(w => w.length > 2));
+  const wb = new Set(normalise(b).split(' ').filter(w => w.length > 2));
+  if (wa.size === 0 || wb.size === 0) return 0;
+  let shared = 0;
+  wa.forEach(w => { if (wb.has(w)) shared += 1; });
+  return shared / Math.max(wa.size, wb.size);
+}
+
+export type DuplicateHit = {product: Product; score: number; why: string};
+
+/** Looks for a product that may already be this one. Never merges anything —
+ *  the answer is shown and the person decides (spec §19). */
+export function findDuplicates(
+  candidate: {title: string; barcode?: string; model?: string; ebayListingId?: string},
+  s: State = getState()
+): DuplicateHit[] {
+  const hits: DuplicateHit[] = [];
+  for (const p of s.products) {
+    if (p.archived) continue;
+    if (candidate.barcode && candidate.barcode && p.barcode === candidate.barcode) {
+      hits.push({product: p, score: 1, why: 'same barcode'});
+      continue;
+    }
+    if (candidate.ebayListingId && p.ebayListingId && p.ebayListingId === candidate.ebayListingId) {
+      hits.push({product: p, score: 1, why: 'same eBay listing ID'});
+      continue;
+    }
+    if (candidate.model && p.model && normalise(candidate.model) === normalise(p.model)) {
+      hits.push({product: p, score: 0.9, why: 'same model number'});
+      continue;
+    }
+    const score = titleSimilarity(candidate.title, p.title);
+    if (score >= 0.6) hits.push({product: p, score, why: 'similar title'});
+  }
+  return hits.sort((a, b) => b.score - a.score).slice(0, 4);
+}
+
+/* ------------------------------- notifications ----------------------------- */
+
+function buildNotifications(s: State): Notification[] {
+  const out: Notification[] = [];
+  const add = (kind: NotificationKind, title: string, detail: string, href: string | null) => {
+    out.push({id: kind + '-' + title, kind, title, detail, href, createdAt: now(), readAt: null});
+  };
+
+  const active = s.products.filter(p => !p.archived);
+  const out0 = active.filter(p => p.physical <= 0);
+  const low = active.filter(p => p.physical > 0 && available(p) <= p.lowStockThreshold);
+  const testing = active.filter(p => p.quarantine > 0);
+  const awaiting = s.orders.filter(o => o.status === 'Picking' || o.status === 'Paid');
+
+  if (out0.length) add('out_of_stock', `${out0.length} product${out0.length > 1 ? 's' : ''} out of stock`, out0.map(p => p.sku).join(', '), '/stock');
+  if (low.length) add('low_stock', `${low.length} product${low.length > 1 ? 's' : ''} low on stock`, low.map(p => p.sku).join(', '), '/stock');
+  if (testing.length) add('needs_testing', `${testing.length} product${testing.length > 1 ? 's' : ''} in quarantine`, testing.map(p => `${p.sku} (${p.quarantineReason ?? 'held'})`).join(', '), '/stock');
+  if (awaiting.length) add('awaiting_dispatch', `${awaiting.length} order${awaiting.length > 1 ? 's' : ''} awaiting fulfilment`, awaiting.map(o => o.orderNumber).join(', '), '/ecommerce');
+
+  return out;
+}
+
+/** Derived from current state on every read, so nothing goes stale. */
+export function notifications(s: State = getState()): Notification[] {
+  return buildNotifications(s);
+}
+
+/* --------------------------------- warehouses ------------------------------ */
+
+export function addWarehouse(input: {name: string; address: string}, actor: string): Warehouse {
+  const s = getState();
+  if (input.name.trim().length < 2) throw new Error('Warehouse name is required');
+  if (s.warehouses.some(w => w.name.toLowerCase() === input.name.trim().toLowerCase())) {
+    throw new Error('There is already a warehouse with that name');
+  }
+  const w: Warehouse = {id: uid('wh'), name: input.name.trim(), address: input.address.trim(), active: true};
+  persist({
+    ...s,
+    warehouses: [...s.warehouses, w],
+    audit: [auditEntry(actor, 'warehouse.created', 'warehouse', w.id, w.name), ...s.audit]
+  });
+  return w;
+}
+
+/* --------------------------------- CSV import ------------------------------ */
+
+export type ImportRow = {
+  title: string; category: string; subcategory: string; condition: string;
+  rack: string; bay: string; level: string;
+  physical: number; cost: number; targetPrice: number;
+  brand: string; model: string; colour: string;
+  ebayListingId: string;
+};
+
+export type ImportPreview = {
+  rows: Array<{row: ImportRow; line: number; errors: string[]; duplicate: DuplicateHit | null}>;
+  valid: number;
+  invalid: number;
+};
+
+export const IMPORT_COLUMNS = [
+  'title', 'category', 'subcategory', 'condition', 'rack', 'bay', 'level',
+  'physical', 'cost', 'targetPrice', 'brand', 'model', 'colour', 'ebayListingId'
+];
+
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') quoted = false;
+      else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map(v => v.trim());
+}
+
+/** Parses and checks a CSV without writing anything. Nothing is ever
+ *  overwritten silently (spec §57). */
+export function previewImport(csv: string, s: State = getState()): ImportPreview {
+  const lines = csv.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) throw new Error('The file needs a header row and at least one product');
+
+  const headers = splitCsvLine(lines[0]).map(h => h.replace(/\s+/g, '').toLowerCase());
+  const index = (name: string) => headers.indexOf(name.toLowerCase());
+  const missing = ['title', 'category', 'condition', 'rack', 'bay', 'level', 'physical'].filter(c => index(c) < 0);
+  if (missing.length) throw new Error(`Missing column(s): ${missing.join(', ')}`);
+
+  const rows = lines.slice(1).map((line, i) => {
+    const cells = splitCsvLine(line);
+    const get = (name: string) => { const ix = index(name); return ix >= 0 ? (cells[ix] ?? '') : ''; };
+    const num = (name: string) => { const v = Number(get(name)); return Number.isFinite(v) ? v : NaN; };
+
+    const row: ImportRow = {
+      title: get('title'), category: get('category'), subcategory: get('subcategory'),
+      condition: get('condition') || 'Untested',
+      rack: get('rack'), bay: get('bay'), level: get('level'),
+      physical: num('physical'), cost: num('cost') || 0, targetPrice: num('targetprice') || 0,
+      brand: get('brand'), model: get('model'), colour: get('colour'),
+      ebayListingId: get('ebaylistingid')
+    };
+
+    const errors: string[] = [];
+    if (row.title.trim().length < 3) errors.push('title too short');
+    if (!row.rack || !row.bay || !row.level) errors.push('location incomplete');
+    if (!Number.isInteger(row.physical) || row.physical < 0) errors.push('physical must be a whole number');
+    if (row.cost < 0 || row.targetPrice < 0) errors.push('cost/price cannot be negative');
+    if (!(CONDITION_VALUES as readonly string[]).includes(row.condition)) errors.push(`unknown condition "${row.condition}"`);
+
+    const duplicate = errors.length === 0
+      ? (findDuplicates({title: row.title, model: row.model, ebayListingId: row.ebayListingId}, s)[0] ?? null)
+      : null;
+
+    return {row, line: i + 2, errors, duplicate};
+  });
+
+  return {rows, valid: rows.filter(r => r.errors.length === 0).length, invalid: rows.filter(r => r.errors.length > 0).length};
+}
+
+export function commitImport(preview: ImportPreview, skipLines: number[], actor: string): number {
+  let added = 0;
+  for (const entry of preview.rows) {
+    if (entry.errors.length > 0) continue;
+    if (skipLines.includes(entry.line)) continue;
+    addProduct({
+      title: entry.row.title,
+      category: entry.row.category,
+      subcategory: entry.row.subcategory,
+      brand: entry.row.brand, model: entry.row.model, colour: entry.row.colour,
+      condition: entry.row.condition as Condition,
+      image: PLACEHOLDER_IMAGE,
+      physical: entry.row.physical,
+      cost: entry.row.cost,
+      targetPrice: entry.row.targetPrice,
+      rack: entry.row.rack, bay: entry.row.bay, level: entry.row.level
+    }, actor);
+    added += 1;
+  }
+  return added;
 }

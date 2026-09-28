@@ -66,7 +66,7 @@ export default function ReportsPage() {
 
   return <div className="page">
     <div className="top">
-      <div><div className="title">Reports</div><div className="muted">Every table here exports to CSV for Excel</div></div>
+      <div><div className="eyebrow">Numbers</div><div className="title">Reports</div><div className="muted">Every table here exports to CSV for Excel</div></div>
       <button className="btn" type="button" onClick={exportCurrent}>Export CSV</button>
     </div>
 

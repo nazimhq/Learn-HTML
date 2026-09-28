@@ -12,8 +12,11 @@ what is and is not built.
 |---|---|---|---|
 | `admin` | `Hizli@2026` | Admin | everything |
 | `manager` | `Manager@2026` | Manager | everything except Audit log and Settings |
-| `warehouse` | `Store@2026` | Warehouse | stock and fulfilment — **no cost or profit** |
+| `warehouse` | `Store@2026` | Warehouse | stock, orders, returns — **no cost or profit** |
 | `listing` | `Listing@2026` | Listing | products and marketplace listings only |
+
+Everyone can change their own password from the header; the change is kept in
+that browser.
 
 Accounts are in `lib/auth.ts` and ship inside the browser bundle, so this is a
 UI gate, not security. Real accounts need Supabase Auth and the RLS policies.
@@ -35,7 +38,11 @@ swap for Supabase queries; no page touches storage directly.
 - **Suppliers** — suppliers and purchase batches
 - **Reports** — sales, valuation, low stock, dead stock, movements; all CSV
 - **Audit log** — actions, stock movements, AI usage
-- **Settings** — company, users and roles, integrations, data export
+- **Import** — CSV import with a row-by-row preview and duplicate warnings
+- **Returns** — customer, marketplace and supplier returns, plus quarantine
+- **HR & Compliance** — staff, right-to-work checks, training expiry, action list
+- **Settings** — company and trading details, WhatsApp, users and roles,
+  integrations, data export
 
 ## Included
 - Dashboard

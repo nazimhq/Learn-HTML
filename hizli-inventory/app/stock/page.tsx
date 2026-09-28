@@ -33,6 +33,7 @@ export default function StockPage() {
   return <div className="page">
     <div className="top">
       <div>
+        <div className="eyebrow">Warehouse</div>
         <div className="title">Stock</div>
         <div className="muted">Stock In is what you have. Stock Out is what has run out.</div>
       </div>

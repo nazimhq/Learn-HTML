@@ -4,11 +4,14 @@ import {useMemo, useState} from 'react';
 import Link from 'next/link';
 import {useStore} from '@/lib/useStore';
 import {useSession} from '@/lib/useSession';
-import {available, archiveProduct, money, locationOf} from '@/lib/store';
+import {available, archiveProduct, money, locationOf, bulkMove, bulkThreshold, bulkArchive} from '@/lib/store';
 import {CONDITIONS} from '@/lib/types';
 import {can} from '@/lib/auth';
 import {lowStock} from '@/lib/sales';
+import Link2 from 'next/link';
 import AddProductDialog from './AddProductDialog';
+import EditProductDialog from './EditProductDialog';
+import Modal from './Modal';
 import Tabs from './Tabs';
 import Toast from './Toast';
 
@@ -23,6 +26,9 @@ export default function InventoryClient() {
   const [stockFilter, setStockFilter] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulk, setBulk] = useState<'move' | 'threshold' | null>(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
 
@@ -57,10 +63,14 @@ export default function InventoryClient() {
   return <div className="page">
     <div className="top">
       <div>
+        <div className="eyebrow">Photo-first catalogue</div>
         <div className="title">Inventory</div>
         <div className="muted">{list.length} of {state.products.filter(p => !p.archived).length} products · photo-first search</div>
       </div>
-      {can(session, 'product.create') && <button className="btn" type="button" onClick={() => setAdding(true)}>+ Add Product</button>}
+      <div className="row" style={{gap: 10, flexWrap: 'wrap'}}>
+        {can(session, 'product.create') && <Link2 className="btn secondary" href="/import">Import CSV</Link2>}
+        {can(session, 'product.create') && <button className="btn" type="button" onClick={() => setAdding(true)}>+ Add Product</button>}
+      </div>
     </div>
 
     <Tabs<View> active={view} onChange={setView} tabs={[{key: 'card', label: 'Card view'}, {key: 'table', label: 'Table view'}]}/>
@@ -108,22 +118,30 @@ export default function InventoryClient() {
                   </div>
                 </div>
               </Link>
-              {can(session, 'product.archive') && <button className="link-danger" type="button" onClick={() => archive(p.id, p.sku)}>
-                {showArchived ? 'Restore' : 'Archive'}
-              </button>}
+              <div className="row" style={{padding: '0 14px 13px', justifyContent: 'flex-start', gap: 14}}>
+                {can(session, 'product.edit') && <button className="link-btn" type="button" onClick={() => setEditing(p.id)}>Edit</button>}
+                {can(session, 'product.archive') && <button className="link-danger" type="button" onClick={() => archive(p.id, p.sku)}>
+                  {showArchived ? 'Restore' : 'Archive'}
+                </button>}
+              </div>
             </div>)}
           </div>
         : <div style={{overflowX: 'auto'}}>
             <table className="table">
               <thead>
                 <tr>
+                  <th><input type="checkbox" aria-label="Select all"
+                    checked={list.length > 0 && selected.length === list.length}
+                    onChange={e => setSelected(e.target.checked ? list.map(p => p.id) : [])}/></th>
                   <th>Photo</th><th>SKU</th><th>Product</th><th>Category</th><th>Condition</th><th>Location</th>
                   <th className="num">Phys</th><th className="num">Resv</th><th className="num">Avail</th>
                   {showCost && <><th className="num">Cost</th><th className="num">Price</th></>}
-                  <th>eBay</th><th>Vinted</th><th>Updated</th>
+                  <th>eBay</th><th>Vinted</th><th>Updated</th><th/>
                 </tr>
               </thead>
               <tbody>{list.map(p => <tr key={p.id}>
+                <td><input type="checkbox" aria-label={`Select ${p.sku}`} checked={selected.includes(p.id)}
+                  onChange={e => setSelected(s2 => e.target.checked ? [...s2, p.id] : s2.filter(id => id !== p.id))}/></td>
                 <td><img className="thumb" src={p.image} alt=""/></td>
                 <td><Link className="link-btn" href={`/product/?id=${p.id}`}>{p.sku}</Link></td>
                 <td>{p.title}</td>
@@ -137,9 +155,68 @@ export default function InventoryClient() {
                 <td>{p.ebayStatus === 'Listed' ? '✓' : '—'}</td>
                 <td>{p.vintedStatus === 'Listed' ? '✓' : '—'}</td>
                 <td className="muted">{new Date(p.updatedAt).toLocaleDateString('en-GB')}</td>
+                <td className="row-actions">
+                  {can(session, 'product.edit') && <button className="link-btn" type="button" onClick={() => setEditing(p.id)}>Edit</button>}
+                </td>
               </tr>)}</tbody>
             </table>
           </div>}
+
+    {selected.length > 0 && can(session, 'product.edit') && <div className="bulkbar reveal">
+      <b>{selected.length} selected</b>
+      <button className="btn secondary" type="button" onClick={() => setBulk('move')}>Move</button>
+      <button className="btn secondary" type="button" onClick={() => setBulk('threshold')}>Low-stock level</button>
+      {can(session, 'product.archive') && <button className="btn secondary" type="button" onClick={() => {
+        try { bulkArchive(selected, !showArchived, session!.username); setToast(`${selected.length} product(s) ${showArchived ? 'restored' : 'archived'}`); setSelected([]); setError(''); }
+        catch (e) { setError((e as Error).message); }
+      }}>{showArchived ? 'Restore' : 'Archive'}</button>}
+      <button className="link-btn" type="button" style={{marginLeft: 'auto'}} onClick={() => setSelected([])}>Clear</button>
+    </div>}
+
+    {bulk && session && <Modal title={bulk === 'move' ? `Move ${selected.length} product(s)` : `Low-stock level for ${selected.length} product(s)`} onClose={() => setBulk(null)}>
+      <form className="stack" onSubmit={e => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget as HTMLFormElement);
+        try {
+          if (bulk === 'move') {
+            bulkMove(selected, {
+              rack: String(f.get('rack') ?? ''), bay: String(f.get('bay') ?? ''),
+              level: String(f.get('level') ?? ''), bin: String(f.get('bin') ?? '')
+            }, session.username);
+            setToast(`${selected.length} product(s) moved`);
+          } else {
+            bulkThreshold(selected, Number(f.get('threshold')), session.username);
+            setToast(`${selected.length} product(s) updated`);
+          }
+          setBulk(null); setSelected([]); setError('');
+        } catch (err) { setError((err as Error).message); }
+      }}>
+        {bulk === 'move'
+          ? <><div className="form-grid">
+              <label className="field" htmlFor="bk-rack">Rack<input id="bk-rack" name="rack" className="input" required/></label>
+              <label className="field" htmlFor="bk-bay">Bay<input id="bk-bay" name="bay" className="input" required/></label>
+            </div>
+            <div className="form-grid">
+              <label className="field" htmlFor="bk-level">Level<input id="bk-level" name="level" className="input" required/></label>
+              <label className="field" htmlFor="bk-bin">Bin <span className="muted">(optional)</span><input id="bk-bin" name="bin" className="input"/></label>
+            </div></>
+          : <label className="field" htmlFor="bk-threshold">Low-stock level
+              <input id="bk-threshold" name="threshold" className="input" type="number" min="0" step="1" defaultValue={2}/>
+            </label>}
+        <div className="muted" style={{fontSize: 12}}>Each product gets its own movement and audit entry.</div>
+        <div className="row" style={{justifyContent: 'flex-end', gap: 10}}>
+          <button className="btn secondary" type="button" onClick={() => setBulk(null)}>Cancel</button>
+          <button className="btn" type="submit">Apply</button>
+        </div>
+      </form>
+    </Modal>}
+
+    {editing && session && <EditProductDialog
+      product={state.products.find(p => p.id === editing)!}
+      session={session}
+      onClose={() => setEditing(null)}
+      onSaved={m => { setEditing(null); setToast(m); }}
+    />}
 
     {adding && session && <AddProductDialog
       session={session}

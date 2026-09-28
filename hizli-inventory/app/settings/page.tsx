@@ -25,7 +25,7 @@ export default function SettingsPage() {
 
   if (!can(session, 'settings.manage')) {
     return <div className="page">
-      <div className="top"><div><div className="title">Settings</div></div></div>
+      <div className="top"><div><div className="eyebrow">Configuration</div><div className="title">Settings</div></div></div>
       <div className="notice">Only an admin can change company settings. You are signed in as <b>{session ? ROLE_LABELS[session.role] : 'nobody'}</b>.</div>
     </div>;
   }
@@ -58,7 +58,16 @@ export default function SettingsPage() {
 
     {tab === 'company' && <form className="card stack" onSubmit={submit} style={{maxWidth: 560}}>
       <h3 style={{marginTop: 0}}>Company</h3>
-      <label className="field" htmlFor="company">Company name<input id="company" className="input" value={form.company} onChange={set('company')}/></label>
+      <label className="field" htmlFor="company">Company name <span className="muted">(shown in the header)</span>
+        <input id="company" className="input" value={form.company} onChange={set('company')}/></label>
+      <label className="field" htmlFor="legal">Trading as / legal name
+        <input id="legal" className="input" value={form.legalName} onChange={set('legalName')}/></label>
+      <div className="form-grid">
+        <label className="field" htmlFor="location">Location<input id="location" className="input" value={form.location} onChange={set('location')}/></label>
+        <label className="field" htmlFor="hours">Opening hours<input id="hours" className="input" value={form.openingHours} onChange={set('openingHours')}/></label>
+      </div>
+      <label className="field" htmlFor="whatsapp">WhatsApp number <span className="muted">(international, digits only)</span>
+        <input id="whatsapp" className="input" value={form.whatsapp} onChange={set('whatsapp')} placeholder="447000000000"/></label>
       <div className="form-grid">
         <label className="field" htmlFor="prefix">SKU prefix<input id="prefix" className="input" value={form.skuPrefix} onChange={set('skuPrefix')} maxLength={6}/></label>
         <label className="field" htmlFor="currency">Currency
