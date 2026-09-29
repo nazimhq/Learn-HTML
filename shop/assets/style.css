@@ -1,0 +1,113 @@
+/* Shop styles: only what Tailwind's CDN can't do on its own. Same look as the NEXAWEB site. */
+
+:root {
+  color-scheme: dark;
+  --bg: #0b0b0e;
+  --panel: #111115;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #8b5cf6;
+  --accent-2: #a855f7;
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+h1, h2, h3 { text-wrap: balance; }
+::selection { background: rgba(139, 92, 246, 0.35); color: #fff; }
+:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; border-radius: 8px; }
+[hidden] { display: none !important; }
+
+.site-header { top: env(safe-area-inset-top, 0px); }
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(180deg, #9b6dfa 0%, var(--accent) 100%);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.55), 0 8px 30px -8px rgba(139, 92, 246, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: box-shadow 0.25s ease, transform 0.25s ease, filter 0.25s ease;
+}
+.btn-primary:hover { filter: brightness(1.08); box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.8), 0 10px 40px -6px rgba(139, 92, 246, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.6; transform: none; cursor: wait; }
+.btn-ghost { border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.02); transition: border-color 0.2s ease, background 0.2s ease; }
+.btn-ghost:hover { border-color: rgba(168, 85, 247, 0.5); background: rgba(139, 92, 246, 0.06); }
+.btn-danger { border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; transition: background 0.2s ease; }
+.btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* Cards */
+.card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.005));
+  border: 1px solid var(--line);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+a.card:hover, article.card:hover { border-color: rgba(139, 92, 246, 0.35); box-shadow: 0 20px 50px -30px rgba(139, 92, 246, 0.6); }
+.panel { background: var(--panel); border: 1px solid var(--line); }
+
+/* Form fields */
+.field {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.field::placeholder { color: #71717a; }
+.field:focus { outline: none; border-color: rgba(168, 85, 247, 0.7); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
+select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem; padding-right: 2.25rem; }
+select.field option { background: #16161b; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
+
+.choice { border: 1px solid var(--line-strong); transition: border-color 0.2s ease, background 0.2s ease; }
+.choice:has(input:checked) { border-color: rgba(168, 85, 247, 0.7); background: rgba(139, 92, 246, 0.08); }
+
+/* Hero */
+.hero-glow { background: radial-gradient(60% 50% at 70% 20%, rgba(139, 92, 246, 0.22), transparent 70%), radial-gradient(40% 40% at 15% 10%, rgba(168, 85, 247, 0.10), transparent 70%); }
+.hero-grid {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 80%);
+}
+.text-gradient { background: linear-gradient(90deg, #ffffff 0%, #d8c8ff 55%, #b794ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* Image placeholder when a product has no photo */
+.placeholder-img {
+  background:
+    radial-gradient(80% 80% at 30% 0%, hsla(var(--h), 85%, 62%, 0.45), transparent 70%),
+    radial-gradient(60% 60% at 100% 100%, hsla(calc(var(--h) + 20), 80%, 55%, 0.25), transparent 70%),
+    #121217;
+}
+
+/* Product description text */
+.prose-plain p + p { margin-top: 0.9em; }
+
+/* Toast + floating WhatsApp */
+.toast { bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); }
+.fab { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+
+/* Scroll reveal */
+.reveal-ready [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reveal-ready [data-reveal].is-visible { opacity: 1; transform: none; }
+
+/* Scrollable tables in admin */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-wrap table { min-width: 640px; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .reveal-ready [data-reveal] { opacity: 1; transform: none; }
+}
+
+@media print {
+  body { background: #fff; color: #000; }
+  .no-print { display: none !important; }
+}
